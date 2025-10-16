@@ -5,7 +5,6 @@
 
 # Archivos de configuración de entorno
 .env
-.env.example
 
 # Archivos de Python
 __pycache__/
@@ -18,11 +17,3 @@ __pycache__/
 
 # Archivos de IDE (VS Code)
 .vscode/
-
-# Archivos de despliegue
-deployment/
-
-# Archivos específicos de Gemini CLI
-GEMINI.md
-INSTALL.md
-converIA.txt
