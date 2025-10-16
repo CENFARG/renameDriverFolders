@@ -1,0 +1,28 @@
+# Archivos y directorios ignorados por Git
+
+# Entorno virtual
+.venv/
+
+# Archivos de configuración de entorno
+.env
+.env.example
+
+# Archivos de Python
+__pycache__/
+*.pyc
+*.pyd
+*.pyo
+
+# Logs
+*.log
+
+# Archivos de IDE (VS Code)
+.vscode/
+
+# Archivos de despliegue
+deployment/
+
+# Archivos específicos de Gemini CLI
+GEMINI.md
+INSTALL.md
+converIA.txt

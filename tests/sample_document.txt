@@ -1,0 +1,10 @@
+Este es un documento de prueba para el sistema de procesamiento automático.
+
+Fecha de factura: 2025-10-15.
+Cliente: Acme Corp.
+Descripción: Servicios de consultoría de software.
+Monto: $1,500 USD.
+
+El objetivo es verificar que el sistema puede leer este contenido,
+extraer las palabras clave relevantes y la fecha, y renombrar el archivo
+de acuerdo a las reglas establecidas.
