@@ -11,7 +11,7 @@ from io import BytesIO
 # English: Import third-party libraries for Google APIs, web framework, and environment management.
 # Español: Importación de bibliotecas de terceros para las APIs de Google, el framework web y la gestión del entorno.
 import google.auth
-import google.generativeai as genai
+import google.generativeai as genai # Corrected import
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from flask import Flask, request
@@ -37,6 +37,14 @@ ROOT_FOLDER_ID = os.environ.get("ROOT_FOLDER_ID")
 # Español: Una cadena JSON con los nombres de las carpetas a monitorear, ej: '["Doc de Respaldo", "Facturas"]'.
 TARGET_FOLDER_NAMES = json.loads(os.environ.get("TARGET_FOLDER_NAMES", '["Doc de Respaldo"]'))
 
+def reload_target_folder_names():
+    """
+    English: Reloads TARGET_FOLDER_NAMES from environment variables.
+    Español: Recarga TARGET_FOLDER_NAMES desde las variables de entorno.
+    """
+    global TARGET_FOLDER_NAMES
+    TARGET_FOLDER_NAMES = json.loads(os.environ.get("TARGET_FOLDER_NAMES", '["Doc de Respaldo"]'))
+
 # English: The name of the Google Cloud Storage bucket used to store the state token.
 # Español: Nombre del bucket de Google Cloud Storage utilizado para guardar el token de estado.
 GCS_BUCKET_NAME = os.environ.get("GCS_BUCKET_NAME")
@@ -51,16 +59,7 @@ GCP_PROJECT_ID = os.environ.get("GCP_PROJECT_ID")
 # Español: Región donde se despliega el modelo de Gemini.
 GCP_REGION = os.environ.get("GCP_REGION")
 
-# English: The service account key, Base64 encoded.
-# Español: La clave de la cuenta de servicio, codificada en Base64.
-ENCODED_SERVICE_ACCOUNT_KEY = os.environ.get("SERVICE_ACCOUNT_KEY_B64")
-
-# --- Credential Decoding and API Client Setup / Decodificación de Credenciales y Configuración de Clientes ---
-
-# English: Decode the service account credentials from the environment variable.
-# Español: Decodifica las credenciales de la cuenta de servicio desde la variable de entorno.
-SERVICE_ACCOUNT_KEY = base64.b64decode(ENCODED_SERVICE_ACCOUNT_KEY)
-SERVICE_ACCOUNT_INFO = json.loads(SERVICE_ACCOUNT_KEY)
+# --- Credential and API Client Setup / Configuración de Credenciales y Clientes ---
 
 # English: Define the scopes required for the Google APIs.
 # Español: Define los alcances (scopes) necesarios para las APIs de Google.
@@ -69,11 +68,31 @@ SCOPES = [
     "https://www.googleapis.com/auth/cloud-platform",
 ]
 
-# English: Create credentials from the service account info.
-# Español: Crea las credenciales a partir de la información de la cuenta de servicio.
-credentials = service_account.Credentials.from_service_account_info(
-    SERVICE_ACCOUNT_INFO, scopes=SCOPES
-)
+# English: Load the Base64 encoded service account key from environment variables.
+# Español: Carga la clave de la cuenta de servicio codificada en Base64 desde las variables de entorno.
+SERVICE_ACCOUNT_KEY_B64 = os.environ.get("SERVICE_ACCOUNT_KEY_B64")
+if not SERVICE_ACCOUNT_KEY_B64:
+    raise ValueError("La variable de entorno SERVICE_ACCOUNT_KEY_B64 es obligatoria y no está configurada.")
+
+# English: Decode the Base64 string and parse the JSON service account info.
+# Español: Decodifica la cadena Base64 y parsea la información JSON de la cuenta de servicio.
+SERVICE_ACCOUNT_INFO = json.loads(base64.b64decode(SERVICE_ACCOUNT_KEY_B64).decode("utf-8"))
+
+# English: Read the environment variable for impersonation.
+# Español: Lee la variable de entorno para la suplantación.
+DRIVE_IMPERSONATED_USER = os.environ.get("DRIVE_IMPERSONATED_USER")
+if not DRIVE_IMPERSONATED_USER:
+    raise ValueError("La variable de entorno DRIVE_IMPERSONATED_USER es obligatoria y no está configurada.")
+
+# English: Create credentials with impersonation (delegation).
+# Español: Crea las credenciales con suplantación (delegación).
+try:
+    credentials = service_account.Credentials.from_service_account_info(
+        SERVICE_ACCOUNT_INFO, scopes=SCOPES, subject=DRIVE_IMPERSONATED_USER
+    )
+except Exception as e:
+    print(f"CRITICAL ERROR: Failed to load credentials. Error: {e}")
+    credentials = None
 
 # English: Initialize the API clients for Drive, Storage, and Gemini.
 # Español: Inicializa los clientes de las APIs para Drive, Storage y Gemini.
@@ -81,7 +100,7 @@ try:
     drive_service = build("drive", "v3", credentials=credentials)
     storage_client = storage.Client(credentials=credentials)
     genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-    gemini_model = genai.GenerativeModel("gemini-pro")
+    gemini_model = genai.GenerativeModel("gemini-2.5-flash")
 except Exception as e:
     print(f"Error initializing API clients: {e}")
     # English: Handle the error appropriately in a production environment.
@@ -140,7 +159,9 @@ def find_target_folders_recursively(start_folder_id):
             response = drive_service.files().list(q=q,
                                                   spaces='drive',
                                                   fields='nextPageToken, files(id, name)',
-                                                  pageToken=page_token).execute()
+                                                  pageToken=page_token,
+                                                  supportsAllDrives=True,
+                                                  includeItemsFromAllDrives=True).execute()
             for folder in response.get('files', []):
                 if folder.get('name') in TARGET_FOLDER_NAMES:
                     target_folders.add(folder.get('id'))
@@ -161,7 +182,7 @@ def get_file_content(file_id):
     Español: Descarga y devuelve el contenido de un archivo desde Google Drive.
     """
     try:
-        request = drive_service.files().get_media(fileId=file_id)
+        request = drive_service.files().get_media(fileId=file_id, supportsAllDrives=True)
         file_content = BytesIO()
         downloader = MediaIoBaseDownload(file_content, request)
         done = False
@@ -213,7 +234,7 @@ def rename_drive_file(file_id, new_name):
     """
     try:
         file_metadata = {'name': new_name}
-        updated_file = drive_service.files().update(fileId=file_id, body=file_metadata, fields='id, name').execute()
+        updated_file = drive_service.files().update(fileId=file_id, body=file_metadata, fields='id, name', supportsAllDrives=True).execute()
         print(f"File renamed to: {updated_file.get('name')}")
         return updated_file.get('name')
     except HttpError as error:
@@ -232,7 +253,7 @@ def update_html_index(folder_id, original_name, new_name, summary, is_deleted=Fa
     # Español: Comprueba si el archivo de índice ya existe.
     try:
         query = f"'{folder_id}' in parents and name='{index_name}' and trashed=false"
-        response = drive_service.files().list(q=query, fields='files(id)').execute()
+        response = drive_service.files().list(q=query, fields='files(id)', supportsAllDrives=True, includeItemsFromAllDrives=True).execute()
         files = response.get('files', [])
         if files:
             index_file_id = files[0]['id']
@@ -323,13 +344,13 @@ def update_html_index(folder_id, original_name, new_name, summary, is_deleted=Fa
     if index_file_id:
         # English: If the index existed, update it.
         # Español: Si el índice existía, actualízalo.
-        drive_service.files().update(fileId=index_file_id, media_body=media).execute()
+        drive_service.files().update(fileId=index_file_id, media_body=media, supportsAllDrives=True).execute()
         print(f"HTML index updated in folder {folder_id}.")
     else:
         # English: If not, create a new index file.
         # Español: Si no, crea un nuevo archivo de índice.
         file_metadata['parents'] = [folder_id]
-        drive_service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+        drive_service.files().create(body=file_metadata, media_body=media, fields='id', supportsAllDrives=True).execute()
         print(f"HTML index created in folder {folder_id}.")
 
 

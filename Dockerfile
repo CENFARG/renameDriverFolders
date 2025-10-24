@@ -11,6 +11,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copia el resto del código de la aplicación
 COPY . .
 
+# Crea un usuario no-root y cambia la propiedad del directorio de trabajo
+RUN adduser --system --group appuser
+RUN chown -R appuser:appuser /app
+
+# Cambia al usuario no-root
+USER appuser
+
 # Expone el puerto que la aplicación escuchará
 EXPOSE 8080
 

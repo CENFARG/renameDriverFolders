@@ -6,6 +6,11 @@ import os
 import sys
 import unittest
 from io import BytesIO
+import json
+
+# English: Import HttpError for specific error handling.
+# Español: Importa HttpError para el manejo específico de errores.
+from googleapiclient.errors import HttpError
 
 # English: Add the root directory to the system path to allow importing the 'main' module.
 # Español: Añade el directorio raíz a la ruta del sistema para permitir la importación del módulo 'main'.
@@ -14,18 +19,23 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 # English: Load environment variables from .env file for the test configuration.
 # Español: Carga las variables de entorno desde el archivo .env para la configuración de la prueba.
 from dotenv import load_dotenv
-load_dotenv()
+# English: Construct the path to the .env file in the project root and load it, overriding any existing system-level variables.
+# Español: Construye la ruta al archivo .env en la raíz del proyecto y lo carga, sobreescribiendo cualquier variable de entorno existente a nivel de sistema.
+dotenv_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.env'))
+load_dotenv(dotenv_path=dotenv_path, override=True)
 
 # English: Import Google API client helpers and the functions to be tested from the main module.
 # Español: Importa los ayudantes del cliente de la API de Google y las funciones a probar desde el módulo principal.
 from googleapiclient.http import MediaIoBaseUpload
+import main
 from main import (
     drive_service, 
     get_file_content,
     rename_drive_file, 
     update_html_index,
     analyze_content_with_gemini,
-    find_target_folders_recursively
+    find_target_folders_recursively,
+    reload_target_folder_names
 )
 
 # --- Test Configuration from Environment / Configuración de Prueba desde el Entorno ---
@@ -40,6 +50,7 @@ class TestFileProcessingIntegration(unittest.TestCase):
     TEST_FILE_NAME = "sample_document.txt"
     test_sub_folder_id = None
     test_file_id = None
+    original_target_folder_names = None
 
     @classmethod
     def setUpClass(cls):
@@ -49,8 +60,12 @@ class TestFileProcessingIntegration(unittest.TestCase):
         """
         if not TEST_ROOT_FOLDER_ID:
             raise ValueError("The TEST_ROOT_FOLDER_ID environment variable is not set in the .env file")
-
         print("--- Starting test environment setup ---")
+        
+        cls.original_target_folder_names = os.environ.get("TARGET_FOLDER_NAMES")
+        os.environ["TARGET_FOLDER_NAMES"] = json.dumps([cls.TEST_SUB_FOLDER_NAME])
+        main.reload_target_folder_names() # Call main.reload_target_folder_names()
+
         try:
             # English: 1. Create a temporary test folder inside the shared root folder.
             # Español: 1. Crear una carpeta de prueba temporal DENTRO de la carpeta raíz compartida.
@@ -59,7 +74,7 @@ class TestFileProcessingIntegration(unittest.TestCase):
                 'mimeType': 'application/vnd.google-apps.folder',
                 'parents': [TEST_ROOT_FOLDER_ID]
             }
-            target_folder = drive_service.files().create(body=file_metadata, fields='id').execute()
+            target_folder = drive_service.files().create(body=file_metadata, fields='id', supportsAllDrives=True).execute()
             cls.test_sub_folder_id = target_folder.get('id')
             print(f"Test subfolder created: '{cls.TEST_SUB_FOLDER_NAME}' (ID: {cls.test_sub_folder_id})")
 
@@ -75,7 +90,8 @@ class TestFileProcessingIntegration(unittest.TestCase):
                 file = drive_service.files().create(
                     body=file_metadata,
                     media_body=media,
-                    fields='id'
+                    fields='id',
+                    supportsAllDrives=True
                 ).execute()
 
             cls.test_file_id = file.get('id')
@@ -98,11 +114,20 @@ class TestFileProcessingIntegration(unittest.TestCase):
             try:
                 # English: Delete the temporary test folder.
                 # Español: Elimina la carpeta de prueba temporal.
-                drive_service.files().delete(fileId=cls.test_sub_folder_id).execute()
+                drive_service.files().delete(fileId=cls.test_sub_folder_id, supportsAllDrives=True).execute()
                 print(f"Test subfolder '{cls.TEST_SUB_FOLDER_NAME}' deleted.")
+            except HttpError as error:
+                if error.resp.status == 404:
+                    print(f"Warning: Test subfolder '{cls.TEST_SUB_FOLDER_NAME}' (ID: {cls.test_sub_folder_id}) not found during cleanup. It might have been moved or deleted by the test itself.")
+                else:
+                    print(f"Error during cleanup: {error}. Please delete the subfolder manually (ID: {cls.test_sub_folder_id}).")
             except Exception as e:
                 print(f"Error during cleanup: {e}. Please delete the subfolder manually (ID: {cls.test_sub_folder_id}).")
         print("--- Cleanup complete ---")
+
+        if cls.original_target_folder_names is not None:
+            os.environ["TARGET_FOLDER_NAMES"] = cls.original_target_folder_names
+            main.reload_target_folder_names()
 
     def test_full_workflow(self):
         """
@@ -143,7 +168,7 @@ class TestFileProcessingIntegration(unittest.TestCase):
         # English: 5. Verify that the renamed file and the index exist.
         # Español: 5. Verificar que el archivo renombrado y el índice existen.
         query = f"'{self.test_sub_folder_id}' in parents and trashed=false"
-        response = drive_service.files().list(q=query, fields='files(id, name)').execute()
+        response = drive_service.files().list(q=query, fields='files(id, name)', supportsAllDrives=True, includeItemsFromAllDrives=True).execute()
         files_after = {f['name']: f['id'] for f in response.get('files', [])}
         
         self.assertIn(new_name_expected, files_after, "The renamed file is not in the folder.")
