@@ -7,6 +7,8 @@ import json
 import os
 from datetime import datetime
 from io import BytesIO
+import logging
+import sys
 
 # English: Import third-party libraries for Google APIs, web framework, and environment management.
 # Español: Importación de bibliotecas de terceros para las APIs de Google, el framework web y la gestión del entorno.
@@ -25,6 +27,19 @@ from googleapiclient.http import MediaIoBaseDownload, MediaIoBaseUpload
 # Español: Carga las variables de entorno desde un archivo .env para el desarrollo local.
 load_dotenv()
 
+# --- Logging Configuration / Configuración de Logging ---
+LOG_FILE = "app_debug.log"
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(LOG_FILE),
+        logging.StreamHandler(sys.stdout) # Keep console output for immediate feedback
+    ]
+)
+logger = logging.getLogger(__name__)
+# --- End Logging Configuration ---
+
 # --- Configuration / Configuración ---
 # English: These variables are loaded from environment variables. In a production environment like Cloud Run, they must be set in the service's configuration.
 # Español: Estas variables se cargan desde las variables de entorno. En un entorno de producción como Cloud Run, deben configurarse en la configuración del servicio.
@@ -32,10 +47,12 @@ load_dotenv()
 # English: The root folder ID in Google Drive where monitoring will start.
 # Español: ID de la carpeta raíz en Google Drive donde comenzará el monitoreo.
 ROOT_FOLDER_ID = os.environ.get("ROOT_FOLDER_ID")
+logger.debug(f"ROOT_FOLDER_ID loaded: {ROOT_FOLDER_ID}") # Added debug print
 
 # English: A JSON string of folder names to monitor, e.g., '["Backup Docs", "Invoices"]'.
 # Español: Una cadena JSON con los nombres de las carpetas a monitorear, ej: '["Doc de Respaldo", "Facturas"]'.
 TARGET_FOLDER_NAMES = json.loads(os.environ.get("TARGET_FOLDER_NAMES", '["Doc de Respaldo"]'))
+logger.debug(f"TARGET_FOLDER_NAMES loaded: {TARGET_FOLDER_NAMES}") # Added debug print
 
 def reload_target_folder_names():
     """
@@ -63,10 +80,8 @@ GCP_REGION = os.environ.get("GCP_REGION")
 
 # English: Define the scopes required for the Google APIs.
 # Español: Define los alcances (scopes) necesarios para las APIs de Google.
-SCOPES = [
-    "https://www.googleapis.com/auth/drive",
-    "https://www.googleapis.com/auth/cloud-platform",
-]
+SCOPES_DRIVE = ["https://www.googleapis.com/auth/drive"]
+SCOPES_GCS = ["https://www.googleapis.com/auth/cloud-platform"]
 
 # English: Load the Base64 encoded service account key from environment variables.
 # Español: Carga la clave de la cuenta de servicio codificada en Base64 desde las variables de entorno.
@@ -84,28 +99,32 @@ DRIVE_IMPERSONATED_USER = os.environ.get("DRIVE_IMPERSONATED_USER")
 if not DRIVE_IMPERSONATED_USER:
     raise ValueError("La variable de entorno DRIVE_IMPERSONATED_USER es obligatoria y no está configurada.")
 
-# English: Create credentials with impersonation (delegation).
-# Español: Crea las credenciales con suplantación (delegación).
 try:
-    credentials = service_account.Credentials.from_service_account_info(
-        SERVICE_ACCOUNT_INFO, scopes=SCOPES, subject=DRIVE_IMPERSONATED_USER
+    # English: Create credentials for GCS without impersonation.
+    # Español: Crea las credenciales para GCS sin suplantación.
+    credentials_gcs = service_account.Credentials.from_service_account_info(
+        SERVICE_ACCOUNT_INFO, scopes=SCOPES_GCS
     )
-except Exception as e:
-    print(f"CRITICAL ERROR: Failed to load credentials. Error: {e}")
-    credentials = None
 
-# English: Initialize the API clients for Drive, Storage, and Gemini.
-# Español: Inicializa los clientes de las APIs para Drive, Storage y Gemini.
-try:
-    drive_service = build("drive", "v3", credentials=credentials)
-    storage_client = storage.Client(credentials=credentials)
+    # English: Create credentials for Drive with impersonation (delegation).
+    # Español: Crea las credenciales para Drive con suplantación (delegación).
+    credentials_drive = service_account.Credentials.from_service_account_info(
+        SERVICE_ACCOUNT_INFO, scopes=SCOPES_DRIVE, subject=DRIVE_IMPERSONATED_USER
+    )
+
+    # English: Initialize the API clients for Drive, Storage, and Gemini.
+    # Español: Inicializa los clientes de las APIs para Drive, Storage y Gemini.
+    drive_service = build("drive", "v3", credentials=credentials_drive)
+    storage_client = storage.Client(credentials=credentials_gcs)
     genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
     gemini_model = genai.GenerativeModel("gemini-2.5-flash")
+
 except Exception as e:
-    print(f"Error initializing API clients: {e}")
-    # English: Handle the error appropriately in a production environment.
-    # Español: Manejar el error apropiadamente en un entorno de producción.
-    
+    logger.critical(f"Failed to load credentials or initialize API clients. Error: {e}")
+    drive_service = None
+    storage_client = None
+    gemini_model = None
+
 # English: Initialize the Flask application.
 # Español: Inicializa la aplicación Flask.
 app = Flask(__name__)
@@ -124,7 +143,7 @@ def get_last_token():
             token_data = json.loads(blob.download_as_string())
             return token_data.get("pageToken")
     except Exception as e:
-        print(f"Could not retrieve token, a new sync will be started. Error: {e}")
+        logger.warning(f"Could not retrieve token, a new sync will be started. Error: {e}")
     return None
 
 def save_new_token(token):
@@ -137,9 +156,9 @@ def save_new_token(token):
         blob = bucket.blob(TOKEN_FILE_NAME)
         token_data = {"pageToken": token}
         blob.upload_from_string(json.dumps(token_data), content_type="application/json")
-        print(f"New token saved successfully: {token}")
+        logger.info(f"New token saved successfully: {token}")
     except Exception as e:
-        print(f"Error saving new token: {e}")
+        logger.error(f"Error saving new token: {e}")
 
 def find_target_folders_recursively(start_folder_id):
     """
@@ -155,6 +174,7 @@ def find_target_folders_recursively(start_folder_id):
     def search(folder_id):
         nonlocal page_token
         q = f"'{folder_id}' in parents and {query}"
+        logger.debug(f"find_target_folders_recursively - Querying with q: {q}") # Added debug print
         try:
             response = drive_service.files().list(q=q,
                                                   spaces='drive',
@@ -170,10 +190,10 @@ def find_target_folders_recursively(start_folder_id):
                 search(folder.get('id'))
             page_token = response.get('nextPageToken', None)
         except HttpError as error:
-            print(f"An error occurred while searching for folders: {error}")
+            logger.error(f"An error occurred while searching for folders: {error}")
 
     search(start_folder_id)
-    print(f"Target folders found: {target_folders}")
+    logger.info(f"Target folders found: {target_folders}")
     return list(target_folders)
 
 def get_file_content(file_id):
@@ -190,7 +210,7 @@ def get_file_content(file_id):
             status, done = downloader.next_chunk()
         return file_content.getvalue().decode("utf-8", errors='ignore')
     except HttpError as error:
-        print(f"An error occurred while downloading the file {file_id}: {error}")
+        logger.error(f"An error occurred while downloading the file {file_id}: {error}")
         return None
 
 def analyze_content_with_gemini(content):
@@ -222,7 +242,7 @@ def analyze_content_with_gemini(content):
         json_response = response.text.replace("```json", "").replace("```", "").strip()
         return json.loads(json_response)
     except Exception as e:
-        print(f"Error analyzing content with Gemini: {e}")
+        logger.error(f"Error analyzing content with Gemini: {e}")
         # English: Fallback in case of an error during analysis.
         # Español: Respuesta de respaldo en caso de error durante el análisis.
         return {"keywords": ["generico"], "date": datetime.now().strftime("%Y-%m-%d")}
@@ -235,12 +255,11 @@ def rename_drive_file(file_id, new_name):
     try:
         file_metadata = {'name': new_name}
         updated_file = drive_service.files().update(fileId=file_id, body=file_metadata, fields='id, name', supportsAllDrives=True).execute()
-        print(f"File renamed to: {updated_file.get('name')}")
+        logger.info(f"File renamed to: {updated_file.get('name')}")
         return updated_file.get('name')
     except HttpError as error:
-        print(f"An error occurred while renaming the file: {error}")
+        logger.error(f"An error occurred while renaming the file: {error}")
         return None
-
 def update_html_index(folder_id, original_name, new_name, summary, is_deleted=False):
     """
     English: Creates or updates an index.html file in a Google Drive folder.
@@ -258,7 +277,7 @@ def update_html_index(folder_id, original_name, new_name, summary, is_deleted=Fa
         if files:
             index_file_id = files[0]['id']
     except HttpError as error:
-        print(f"Error searching for index.html: {error}")
+        logger.error(f"Error searching for index.html: {error}")
 
     soup = None
     if index_file_id:
@@ -345,13 +364,13 @@ def update_html_index(folder_id, original_name, new_name, summary, is_deleted=Fa
         # English: If the index existed, update it.
         # Español: Si el índice existía, actualízalo.
         drive_service.files().update(fileId=index_file_id, media_body=media, supportsAllDrives=True).execute()
-        print(f"HTML index updated in folder {folder_id}.")
+        logger.info(f"HTML index updated in folder {folder_id}.")
     else:
         # English: If not, create a new index file.
         # Español: Si no, crea un nuevo archivo de índice.
         file_metadata['parents'] = [folder_id]
         drive_service.files().create(body=file_metadata, media_body=media, fields='id', supportsAllDrives=True).execute()
-        print(f"HTML index created in folder {folder_id}.")
+        logger.info(f"HTML index created in folder {folder_id}.")
 
 
 # --- Main Functions (Endpoints) / Funciones Principales (Endpoints) ---
@@ -423,7 +442,7 @@ def process_drive_changes():
     Español: Punto de entrada principal para procesar los cambios en Google Drive. Se activa mediante una solicitud POST.
     """
     
-    print("Starting to check for changes in Google Drive...")
+    logger.info("Starting to check for changes in Google Drive...")
     
     # English: 1. Find the target folders to monitor.
     # Español: 1. Encontrar las carpetas objetivo a monitorear.
@@ -431,8 +450,14 @@ def process_drive_changes():
     if not target_folder_ids:
         return "No target folders found to monitor.", 200
 
-    # English: 2. Get the token from the last execution.
-    # Español: 2. Obtener el token de la última ejecución.
+    # English: 2. Process all existing files in the target folders.
+    # Español: 2. Procesar todos los archivos existentes en las carpetas objetivo.
+    logger.info("Processing all existing files in target folders...")
+    for folder_id in target_folder_ids:
+        process_existing_files_in_folder(folder_id)
+
+    # English: 3. Get the token from the last execution to process new changes.
+    # Español: 3. Obtener el token de la última ejecución para procesar nuevos cambios.
     page_token = get_last_token()
     if not page_token:
         # English: If no token is found, get a new start token and save it for the next run.
@@ -440,11 +465,11 @@ def process_drive_changes():
         response = drive_service.changes().getStartPageToken().execute()
         page_token = response.get('startPageToken')
         save_new_token(page_token)
-        print("No token found. A new one was obtained. The next run will process changes.")
-        return "Initial token obtained. The next run will process changes.", 200
+        logger.info("No token found. A new one was obtained. The next run will process changes.")
+        return "Initial processing of existing files complete.", 200
 
-    # English: 3. Query for changes since the last token.
-    # Español: 3. Consultar los cambios desde el último token.
+    # English: 4. Query for new changes since the last token.
+    # Español: 4. Consultar los nuevos cambios desde el último token.
     while page_token is not None:
         response = drive_service.changes().list(pageToken=page_token,
                                                 spaces='drive',
@@ -455,7 +480,7 @@ def process_drive_changes():
             if change.get('removed'):
                 # English: A file was deleted. Complex logic is needed to associate the ID with a past name.
                 # Español: Un archivo fue eliminado. Se necesita una lógica compleja para asociar el ID con un nombre anterior.
-                print(f"File with ID {file_id} was deleted.")
+                logger.info(f"File with ID {file_id} was deleted.")
                 # English: Logic to update the index marking the file as deleted would go here.
                 # Español: Aquí iría la lógica para actualizar el índice marcando el archivo como eliminado.
                 
@@ -477,29 +502,11 @@ def process_drive_changes():
                 if original_name == "index.html" or "DOCPROCESADO" in original_name:
                     continue
                     
-                print(f"New file detected: '{original_name}' (ID: {file_id})")
+                logger.info(f"New file detected: '{original_name}' (ID: {file_id})")
 
                 # English: 4. Process the new file.
                 # Español: 4. Procesar el nuevo archivo.
-                content = get_file_content(file_id)
-                if content:
-                    analysis = analyze_content_with_gemini(content)
-                    if analysis:
-                        # English: 5. Rename the file based on the analysis.
-                        # Español: 5. Renombrar el archivo basándose en el análisis.
-                        keywords_str = "_".join(analysis.get("keywords", ["doc"])).replace(" ", "")
-                        date_str = analysis.get("date", datetime.now().strftime("%Y-%m-%d"))
-                        
-                        file_extension = os.path.splitext(original_name)[1]
-                        new_name = f"{date_str}_{keywords_str}_DOCPROCESADO{file_extension}"
-                        
-                        renamed_file = rename_drive_file(file_id, new_name)
-
-                        # English: 6. Update the HTML index.
-                        # Español: 6. Actualizar el índice HTML.
-                        if renamed_file:
-                             summary = " ".join(analysis.get("keywords", []))
-                             update_html_index(file_parents[0], original_name, renamed_file, summary)
+                process_file(file_id, original_name, file_parents[0])
 
         # English: 7. Save the new token for the next execution.
         # Español: 7. Guardar el nuevo token para la próxima ejecución.
@@ -508,6 +515,47 @@ def process_drive_changes():
         page_token = response.get('nextPageToken')
 
     return "Change review process completed.", 200
+
+def process_existing_files_in_folder(folder_id):
+    """Lists and processes all existing files in a given folder."""
+    logger.info(f"Starting to process existing files in folder: {folder_id}")
+    page_token = None
+    while True:
+        response = drive_service.files().list(q=f"'{folder_id}' in parents and trashed=false",
+                                              spaces='drive',
+                                              fields='nextPageToken, files(id, name)',
+                                              pageToken=page_token,
+                                              supportsAllDrives=True,
+                                              includeItemsFromAllDrives=True).execute()
+        for file in response.get('files', []):
+            original_name = file.get('name')
+            file_id = file.get('id')
+            if original_name == "index.html" or "DOCPROCESADO" in original_name:
+                continue
+            logger.info(f"Processing existing file: '{original_name}' (ID: {file_id})")
+            process_file(file_id, original_name, folder_id)
+
+        page_token = response.get('nextPageToken', None)
+        if page_token is None:
+            break
+
+def process_file(file_id, original_name, parent_folder_id):
+    """Processes a single file: analyze, rename, and update index."""
+    content = get_file_content(file_id)
+    if content:
+        analysis = analyze_content_with_gemini(content)
+        if analysis:
+            keywords_str = "_".join(analysis.get("keywords", ["doc"])).replace(" ", "")
+            date_str = analysis.get("date", datetime.now().strftime("%Y-%m-%d"))
+            
+            file_extension = os.path.splitext(original_name)[1]
+            new_name = f"{date_str}_{keywords_str}_DOCPROCESADO{file_extension}"
+            
+            renamed_file = rename_drive_file(file_id, new_name)
+
+            if renamed_file:
+                 summary = " ".join(analysis.get("keywords", []))
+                 update_html_index(parent_folder_id, original_name, renamed_file, summary)
 
 # English: Main execution block for local testing. In Cloud Run, a WSGI server like Gunicorn is used.
 # Español: Bloque de ejecución principal para pruebas locales. En Cloud Run se utiliza un servidor WSGI como Gunicorn.

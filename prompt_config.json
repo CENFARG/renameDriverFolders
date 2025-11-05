@@ -1,0 +1,8 @@
+{
+    "prompt_template": "Analiza el siguiente texto y el nombre del archivo original para extraer la siguiente información en formato JSON. Nombre del archivo original: '{original_filename}'. Contenido: '{file_content}'. Responde solo con el objeto JSON. ",
+    "json_structure": {
+        "keywords": "Una lista de 3 a 5 palabras clave relevantes que resuman el documento.",
+        "date": "La fecha principal del documento en formato YYYY-MM-DD. Si no encuentras una fecha clara, usa la fecha actual."
+    },
+    "new_filename_format": "{date}_{keywords}_DOCPROCESADO.ext"
+}
