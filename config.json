@@ -1,0 +1,33 @@
+{
+  "app_info": {
+    "name": "renameDriverFolders",
+    "version": "1.0.0",
+    "description": "Monitorea una carpeta de Google Drive, renombra los archivos nuevos usando Gemini y actualiza un \u00edndice HTML."
+  },
+  "logging": {
+    "level": "DEBUG",
+    "file": "logs/app.log",
+    "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  },
+  "google_cloud": {
+    "target_folder_names": [
+      "doc de respaldo",
+      "test_integrado"
+    ],
+    "token_file_name": "drive_changes_token.json"
+  },
+  "gemini": {
+    "model_name": "gemini-2.5-flash"
+  },
+  "prompt_config": {
+    "prompt_template": "Analiza el siguiente contenido del archivo '{original_filename}' y extrae las palabras clave y la fecha. Contenido: {file_content}",
+    "json_structure": {
+      "keywords": [
+        "palabra_clave_1",
+        "palabra_clave_2"
+      ],
+      "date": "YYYY-MM-DD"
+    },
+    "new_filename_format": "{date}_{keywords}_DC.ext"
+  }
+}

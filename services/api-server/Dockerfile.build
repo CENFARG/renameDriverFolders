@@ -1,0 +1,26 @@
+# services/api-server/Dockerfile.build
+# This Dockerfile is used by Cloud Build from the project root
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Copiar e instalar core package primero
+COPY packages/core-renombrador /app/packages/core-renombrador
+RUN pip install --no-cache-dir /app/packages/core-renombrador
+
+# Copiar requirements del API server
+COPY services/api-server/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copiar código del API server
+COPY services/api-server/src ./src
+
+# Usuario no-root
+RUN adduser --system --group appuser
+RUN chown -R appuser:appuser /app
+USER appuser
+
+EXPOSE 8080
+
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8080"]

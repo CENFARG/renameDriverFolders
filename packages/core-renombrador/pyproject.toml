@@ -1,0 +1,32 @@
+[project]
+name = "core_renombrador"
+version = "0.1.0"
+description = "Paquete con la lógica de negocio para la aplicación de renombrado de archivos."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { file = "LICENSE" }
+authors = [
+    { name = "CENF", email = "info@cenf.com.ar" },
+]
+
+dependencies = [
+    "google-api-python-client",
+    "google-cloud-storage",
+    "google-auth",
+    "google-auth-httplib2",
+    "google-generativeai",
+    "google-genai",  # Required by Agno Gemini model
+    "google-cloud-vision>=3.4.0",  # OCR support
+    "beautifulsoup4",
+    "pypdf",
+    "pdf2image>=1.16.0",  # PDF to image conversion for OCR
+    "Pillow>=10.0.0",  # Image processing
+    "openpyxl",
+    "python-docx",
+    "supabase>=2.0.0",  # Database support
+    "agno==2.3.9"  # Agno framework for AI agents
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"

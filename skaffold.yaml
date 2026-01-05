@@ -1,0 +1,61 @@
+# skaffold.yaml — Compatible con Skaffold v2.16.1
+apiVersion: skaffold/v4beta1
+kind: Config
+metadata:
+  name: rename-driver-folders-platform
+
+build:
+  artifacts:
+    # Artefacto para el api-server
+    - image: us-central1-docker.pkg.dev/cloud-functions-474716/gcr-io-replacement/rename-driver-folders-api-server
+      context: . # El contexto es la raíz del monorepo
+      docker:
+        dockerfile: services/api-server/Dockerfile # Apunta al Dockerfile específico
+      sync:
+        infer:
+          - 'services/api-server/src/**/*.py' # Sincroniza cambios durante el desarrollo local
+          - 'packages/core-renombrador/**/*.py' # También sincroniza cambios en el paquete core
+    
+    # Artefacto para el worker-renombrador
+    - image: us-central1-docker.pkg.dev/cloud-functions-474716/gcr-io-replacement/rename-driver-folders-worker
+      context: . # El contexto es la raíz del monorepo
+      docker:
+        dockerfile: services/worker-renombrador/Dockerfile # Apunta al Dockerfile específico
+      sync:
+        infer:
+          - 'services/worker-renombrador/src/**/*.py' # Sincroniza cambios durante el desarrollo local
+          - 'packages/core-renombrador/**/*.py' # También sincroniza cambios en el paquete core
+
+  googleCloudBuild: {} # Usa Google Cloud Build para los builds
+
+deploy:
+  cloudrun:
+    projectid: cloud-functions-474716
+    region: us-central1
+    services:
+      # Configuración para el api-server
+      - name: rename-driver-folders-api-server
+        image: us-central1-docker.pkg.dev/cloud-functions-474716/gcr-io-replacement/rename-driver-folders-api-server
+        # Aquí puedes añadir variables de entorno específicas para este servicio
+        # env:
+        #   - name: GCP_PROJECT
+        #     value: cloud-functions-474716
+        #   - name: GCP_LOCATION
+        #     value: us-central1
+        #   - name: TASKS_QUEUE
+        #     value: rename-tasks-queue # Tendremos que crear esta cola
+        #   - name: WORKER_URL
+        #     value: https://rename-driver-folders-worker-... # URL del worker privado
+      
+      # Configuración para el worker-renombrador
+      - name: rename-driver-folders-worker
+        image: us-central1-docker.pkg.dev/cloud-functions-474716/gcr-io-replacement/rename-driver-folders-worker
+        # Este servicio DEBE ser privado, solo accesible por Cloud Tasks
+        # annotations:
+        #   run.googleapis.com/ingress: internal
+        # env:
+        #   - name: DATABASE_URL # Para Supabase/Postgres
+        #     valueFrom:
+        #       secretKeyRef:
+        #         name: SUPABASE_DATABASE_URL
+        #         key: latest

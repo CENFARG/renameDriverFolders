@@ -5,6 +5,7 @@
 
 # Archivos de configuración de entorno
 .env
+temp_secret.txt
 
 # Archivos de Python
 __pycache__/
@@ -12,14 +13,42 @@ __pycache__/
 *.pyd
 *.pyo
 
+# Credenciales
+.credentials/
+credentials.json
+drive_changes_token.json
+credencial_b64.txt
+
 # Logs
 *.log
+logs/
+*.json
 
 # Archivos de IDE (VS Code)
 .vscode/
 
-# archivo propios ignorados
-credentials.json
-drive_changes_token.json
-credencial_b64.txt
-credencial_b64.txt
+# Documentacion de agno
+agno-docs/
+.memory/
+
+# Web Development
+node_modules/
+dist/
+.angular/
+
+# Data and Temporal
+data/
+outputs/
+temp/
+tests/manual/
+tests/manual/test_files/
+
+# Backup/Old copies
+*_old*
+*.bak
+
+.context/
+.lessons/
+.opencode/
+.standars_code/
+.memory/

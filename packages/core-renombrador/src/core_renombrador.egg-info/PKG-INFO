@@ -1,0 +1,22 @@
+Metadata-Version: 2.4
+Name: core_renombrador
+Version: 0.1.0
+Summary: Paquete con la lógica de negocio para la aplicación de renombrado de archivos.
+Author-email: CENF <info@cenf.com.ar>
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: google-api-python-client
+Requires-Dist: google-cloud-storage
+Requires-Dist: google-auth
+Requires-Dist: google-auth-httplib2
+Requires-Dist: google-generativeai
+Requires-Dist: google-genai
+Requires-Dist: google-cloud-vision>=3.4.0
+Requires-Dist: beautifulsoup4
+Requires-Dist: pypdf
+Requires-Dist: pdf2image>=1.16.0
+Requires-Dist: Pillow>=10.0.0
+Requires-Dist: openpyxl
+Requires-Dist: python-docx
+Requires-Dist: supabase>=2.0.0
+Requires-Dist: agno==2.3.9

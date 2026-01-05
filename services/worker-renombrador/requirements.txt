@@ -1,0 +1,16 @@
+# Worker Renombrador - Dependencies
+# Updated: 2025-12-05
+
+# Core framework
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.0.0
+
+# Google Cloud
+google-api-python-client>=2.108.0
+google-auth>=2.25.0
+google-auth-httplib2>=0.1.1
+google-cloud-storage>=2.13.0
+
+# The core_renombrador package (installed via Dockerfile)
+# Includes: agno, google-cloud-vision, pdf2image, Pillow, supabase, etc.

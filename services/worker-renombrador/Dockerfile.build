@@ -1,0 +1,33 @@
+# services/worker-renombrador/Dockerfile.build
+# This Dockerfile is used by Cloud Build from the project root
+
+FROM python:3.11-slim
+
+# Instalar dependencias del sistema para pdf2image (soporte OCR)
+RUN apt-get update && apt-get install -y \
+    poppler-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copiar e instalar core package primero
+COPY packages/core-renombrador /app/packages/core-renombrador
+RUN pip install --no-cache-dir /app/packages/core-renombrador
+
+# Copiar requirements del worker
+COPY services/worker-renombrador/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copiar código del worker
+COPY services/worker-renombrador/src ./src
+COPY services/worker-renombrador/config ./config
+COPY services/worker-renombrador/data ./data
+
+# Usuario no-root
+RUN adduser --system --group appuser
+RUN chown -R appuser:appuser /app
+USER appuser
+
+EXPOSE 8080
+
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8080"]

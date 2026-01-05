@@ -1,0 +1,15 @@
+google-api-python-client
+google-cloud-storage
+google-auth
+google-auth-httplib2
+google-generativeai
+google-genai
+google-cloud-vision>=3.4.0
+beautifulsoup4
+pypdf
+pdf2image>=1.16.0
+Pillow>=10.0.0
+openpyxl
+python-docx
+supabase>=2.0.0
+agno==2.3.9

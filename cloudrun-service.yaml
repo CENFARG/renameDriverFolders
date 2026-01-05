@@ -1,0 +1,33 @@
+# cloudrun-service.yaml
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: rename-driver-folders-v1-07112025 # serviceName (Nombre del servicio)
+spec:
+  template:
+    spec:
+      containers:
+        # Skaffold reemplazará automáticamente este placeholder con la imagen construida
+        - image: us-central1-docker.pkg.dev/cloud-functions-474716/gcr-io-replacement/rename-driver-folders
+          env:
+            # Variables de entorno (env)
+            - name: ROOT_FOLDER_ID
+              valueFrom:
+                secretKeyRef:
+                  name: ROOT_FOLDER_ID
+                  key: latest
+            - name: GCS_BUCKET_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: GCS_BUCKET_NAME
+                  key: latest
+            - name: DRIVE_IMPERSONATED_USER
+              valueFrom:
+                secretKeyRef:
+                  name: DRIVE_IMPERSONATED_USER
+                  key: latest
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: GEMINI_API_KEY
+                  key: latest

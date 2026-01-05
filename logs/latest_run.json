@@ -1,0 +1,776 @@
+[
+  {
+    "insertId": "69262a83000a1585ccacc588",
+    "labels": {
+      "instanceId": "00147782962098d021d3fe943494c4aee3dd91a5307a245290d05a0a91acfd5047abe933748d0bc044ca46e579e150d24949c2b8e3948bc346aec7e727e4b49703c285c7f5d114e8768974d89fc64f"
+    },
+    "logName": "projects/cloud-functions-474716/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-11-25T22:15:31.860921021Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "rename-driver-folders-v1-07112025",
+        "location": "us-central1",
+        "project_id": "cloud-functions-474716",
+        "revision_name": "rename-driver-folders-v1-07112025-00027-4j7",
+        "service_name": "rename-driver-folders-v1-07112025"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "2025-11-25 22:15:31,661 - main - INFO - New token saved successfully: 30",
+    "timestamp": "2025-11-25T22:15:31.660869Z"
+  },
+  {
+    "insertId": "69262a83000a136c3cecc9aa",
+    "labels": {
+      "instanceId": "00147782962098d021d3fe943494c4aee3dd91a5307a245290d05a0a91acfd5047abe933748d0bc044ca46e579e150d24949c2b8e3948bc346aec7e727e4b49703c285c7f5d114e8768974d89fc64f"
+    },
+    "logName": "projects/cloud-functions-474716/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-11-25T22:15:31.860921021Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "rename-driver-folders-v1-07112025",
+        "location": "us-central1",
+        "project_id": "cloud-functions-474716",
+        "revision_name": "rename-driver-folders-v1-07112025-00027-4j7",
+        "service_name": "rename-driver-folders-v1-07112025"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "2025-11-25 22:15:31,661 - urllib3.connectionpool - DEBUG - https://storage.googleapis.com:443 \"POST /upload/storage/v1/b/renamedriverfolderbucket/o?uploadType=multipart HTTP/1.1\" 200 886",
+    "timestamp": "2025-11-25T22:15:31.660332Z"
+  },
+  {
+    "insertId": "69262a82000e0efae902496c",
+    "labels": {
+      "instanceId": "00147782962098d021d3fe943494c4aee3dd91a5307a245290d05a0a91acfd5047abe933748d0bc044ca46e579e150d24949c2b8e3948bc346aec7e727e4b49703c285c7f5d114e8768974d89fc64f"
+    },
+    "logName": "projects/cloud-functions-474716/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-11-25T22:15:31.197719030Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "rename-driver-folders-v1-07112025",
+        "location": "us-central1",
+        "project_id": "cloud-functions-474716",
+        "revision_name": "rename-driver-folders-v1-07112025-00027-4j7",
+        "service_name": "rename-driver-folders-v1-07112025"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "2025-11-25 22:15:30,922 - googleapiclient.discovery - DEBUG - URL being requested: GET https://www.googleapis.com/drive/v3/changes?pageToken=23&spaces=drive&fields=nextPageToken%2C+newStartPageToken%2C+changes%28fileId%2C+removed%2C+file%28name%2C+parents%2C+mimeType%29%29&supportsAllDrives=true&includeItemsFromAllDrives=true&alt=json",
+    "timestamp": "2025-11-25T22:15:30.921338Z"
+  },
+  {
+    "insertId": "69262a82000dfb7af1223b2d",
+    "labels": {
+      "instanceId": "00147782962098d021d3fe943494c4aee3dd91a5307a245290d05a0a91acfd5047abe933748d0bc044ca46e579e150d24949c2b8e3948bc346aec7e727e4b49703c285c7f5d114e8768974d89fc64f"
+    },
+    "logName": "projects/cloud-functions-474716/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-11-25T22:15:31.197719030Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "rename-driver-folders-v1-07112025",
+        "location": "us-central1",
+        "project_id": "cloud-functions-474716",
+        "revision_name": "rename-driver-folders-v1-07112025-00027-4j7",
+        "service_name": "rename-driver-folders-v1-07112025"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "2025-11-25 22:15:30,917 - urllib3.connectionpool - DEBUG - https://storage.googleapis.com:443 \"GET /download/storage/v1/b/renamedriverfolderbucket/o/drive_changes_token.json?alt=media HTTP/1.1\" 200 19",
+    "timestamp": "2025-11-25T22:15:30.916346Z"
+  },
+  {
+    "insertId": "69262a82000d3aa6e955a0e0",
+    "labels": {
+      "instanceId": "00147782962098d021d3fe943494c4aee3dd91a5307a245290d05a0a91acfd5047abe933748d0bc044ca46e579e150d24949c2b8e3948bc346aec7e727e4b49703c285c7f5d114e8768974d89fc64f"
+    },
+    "logName": "projects/cloud-functions-474716/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-11-25T22:15:31.197719030Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "rename-driver-folders-v1-07112025",
+        "location": "us-central1",
+        "project_id": "cloud-functions-474716",
+        "revision_name": "rename-driver-folders-v1-07112025-00027-4j7",
+        "service_name": "rename-driver-folders-v1-07112025"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "2025-11-25 22:15:30,868 - urllib3.connectionpool - DEBUG - https://storage.googleapis.com:443 \"GET /storage/v1/b/renamedriverfolderbucket/o/drive_changes_token.json?fields=name&prettyPrint=false HTTP/1.1\" 200 35",
+    "timestamp": "2025-11-25T22:15:30.866982Z"
+  },
+  {
+    "insertId": "69262a82000c4db8718eceaa",
+    "labels": {
+      "instanceId": "00147782962098d021d3fe943494c4aee3dd91a5307a245290d05a0a91acfd5047abe933748d0bc044ca46e579e150d24949c2b8e3948bc346aec7e727e4b49703c285c7f5d114e8768974d89fc64f"
+    },
+    "logName": "projects/cloud-functions-474716/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-11-25T22:15:30.860587355Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "rename-driver-folders-v1-07112025",
+        "location": "us-central1",
+        "project_id": "cloud-functions-474716",
+        "revision_name": "rename-driver-folders-v1-07112025-00027-4j7",
+        "service_name": "rename-driver-folders-v1-07112025"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "2025-11-25 22:15:30,807 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): storage.googleapis.com:443",
+    "timestamp": "2025-11-25T22:15:30.806328Z"
+  },
+  {
+    "insertId": "69262a82000c3d37c71fc7d3",
+    "labels": {
+      "instanceId": "00147782962098d021d3fe943494c4aee3dd91a5307a245290d05a0a91acfd5047abe933748d0bc044ca46e579e150d24949c2b8e3948bc346aec7e727e4b49703c285c7f5d114e8768974d89fc64f"
+    },
+    "logName": "projects/cloud-functions-474716/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-11-25T22:15:30.860587355Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "rename-driver-folders-v1-07112025",
+        "location": "us-central1",
+        "project_id": "cloud-functions-474716",
+        "revision_name": "rename-driver-folders-v1-07112025-00027-4j7",
+        "service_name": "rename-driver-folders-v1-07112025"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "2025-11-25 22:15:30,803 - urllib3.util.retry - DEBUG - Converted retries value: 3 -> Retry(total=3, connect=None, read=None, redirect=None, status=None)",
+    "timestamp": "2025-11-25T22:15:30.802103Z"
+  },
+  {
+    "insertId": "69262a82000c3a52b7ea4c30",
+    "labels": {
+      "instanceId": "00147782962098d021d3fe943494c4aee3dd91a5307a245290d05a0a91acfd5047abe933748d0bc044ca46e579e150d24949c2b8e3948bc346aec7e727e4b49703c285c7f5d114e8768974d89fc64f"
+    },
+    "logName": "projects/cloud-functions-474716/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-11-25T22:15:30.860587355Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "rename-driver-folders-v1-07112025",
+        "location": "us-central1",
+        "project_id": "cloud-functions-474716",
+        "revision_name": "rename-driver-folders-v1-07112025-00027-4j7",
+        "service_name": "rename-driver-folders-v1-07112025"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "2025-11-25 22:15:30,802 - main - INFO - Checking for new changes since last run...",
+    "timestamp": "2025-11-25T22:15:30.801362Z"
+  },
+  {
+    "insertId": "69262a82000408681ddf82ac",
+    "labels": {
+      "instanceId": "00147782962098d021d3fe943494c4aee3dd91a5307a245290d05a0a91acfd5047abe933748d0bc044ca46e579e150d24949c2b8e3948bc346aec7e727e4b49703c285c7f5d114e8768974d89fc64f"
+    },
+    "logName": "projects/cloud-functions-474716/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-11-25T22:15:30.528419278Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "rename-driver-folders-v1-07112025",
+        "location": "us-central1",
+        "project_id": "cloud-functions-474716",
+        "revision_name": "rename-driver-folders-v1-07112025-00027-4j7",
+        "service_name": "rename-driver-folders-v1-07112025"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "2025-11-25 22:15:30,265 - googleapiclient.discovery - DEBUG - URL being requested: GET https://www.googleapis.com/drive/v3/files?q=%27190GWFayLTvSYFbS9o4IFmFbwYvlDF0wZ%27+in+parents+and+trashed%3Dfalse+and+mimeType+%21%3D+%27application%2Fvnd.google-apps.folder%27&spaces=drive&fields=nextPageToken%2C+files%28id%2C+name%29&supportsAllDrives=true&includeItemsFromAllDrives=true&alt=json",
+    "timestamp": "2025-11-25T22:15:30.264296Z"
+  },
+  {
+    "insertId": "69262a820003f9d9b3769a46",
+    "labels": {
+      "instanceId": "00147782962098d021d3fe943494c4aee3dd91a5307a245290d05a0a91acfd5047abe933748d0bc044ca46e579e150d24949c2b8e3948bc346aec7e727e4b49703c285c7f5d114e8768974d89fc64f"
+    },
+    "logName": "projects/cloud-functions-474716/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-11-25T22:15:30.528419278Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "rename-driver-folders-v1-07112025",
+        "location": "us-central1",
+        "project_id": "cloud-functions-474716",
+        "revision_name": "rename-driver-folders-v1-07112025-00027-4j7",
+        "service_name": "rename-driver-folders-v1-07112025"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "2025-11-25 22:15:30,261 - main - INFO - Starting to process existing files in folder: 190GWFayLTvSYFbS9o4IFmFbwYvlDF0wZ",
+    "timestamp": "2025-11-25T22:15:30.260569Z"
+  },
+  {
+    "insertId": "69262a820003f9868f03c3c6",
+    "labels": {
+      "instanceId": "00147782962098d021d3fe943494c4aee3dd91a5307a245290d05a0a91acfd5047abe933748d0bc044ca46e579e150d24949c2b8e3948bc346aec7e727e4b49703c285c7f5d114e8768974d89fc64f"
+    },
+    "logName": "projects/cloud-functions-474716/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-11-25T22:15:30.528419278Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "rename-driver-folders-v1-07112025",
+        "location": "us-central1",
+        "project_id": "cloud-functions-474716",
+        "revision_name": "rename-driver-folders-v1-07112025-00027-4j7",
+        "service_name": "rename-driver-folders-v1-07112025"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "2025-11-25 22:15:30,261 - main - INFO - Processing existing files...",
+    "timestamp": "2025-11-25T22:15:30.260486Z"
+  },
+  {
+    "insertId": "69262a820003f933b55c04af",
+    "labels": {
+      "instanceId": "00147782962098d021d3fe943494c4aee3dd91a5307a245290d05a0a91acfd5047abe933748d0bc044ca46e579e150d24949c2b8e3948bc346aec7e727e4b49703c285c7f5d114e8768974d89fc64f"
+    },
+    "logName": "projects/cloud-functions-474716/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-11-25T22:15:30.528419278Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "rename-driver-folders-v1-07112025",
+        "location": "us-central1",
+        "project_id": "cloud-functions-474716",
+        "revision_name": "rename-driver-folders-v1-07112025-00027-4j7",
+        "service_name": "rename-driver-folders-v1-07112025"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "2025-11-25 22:15:30,261 - main - INFO - Final list of target folder IDs found: {'190GWFayLTvSYFbS9o4IFmFbwYvlDF0wZ'}",
+    "timestamp": "2025-11-25T22:15:30.260403Z"
+  },
+  {
+    "insertId": "69262a81000f033ccc04c30f",
+    "labels": {
+      "instanceId": "00147782962098d021d3fe943494c4aee3dd91a5307a245290d05a0a91acfd5047abe933748d0bc044ca46e579e150d24949c2b8e3948bc346aec7e727e4b49703c285c7f5d114e8768974d89fc64f"
+    },
+    "logName": "projects/cloud-functions-474716/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-11-25T22:15:30.195908530Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "rename-driver-folders-v1-07112025",
+        "location": "us-central1",
+        "project_id": "cloud-functions-474716",
+        "revision_name": "rename-driver-folders-v1-07112025-00027-4j7",
+        "service_name": "rename-driver-folders-v1-07112025"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "2025-11-25 22:15:29,985 - googleapiclient.discovery - DEBUG - URL being requested: GET https://www.googleapis.com/drive/v3/files?q=%27190GWFayLTvSYFbS9o4IFmFbwYvlDF0wZ%27+in+parents+and+trashed%3Dfalse+and+mimeType%3D%27application%2Fvnd.google-apps.folder%27&spaces=drive&fields=nextPageToken%2C+files%28id%2C+name%29&supportsAllDrives=true&includeItemsFromAllDrives=true&alt=json",
+    "timestamp": "2025-11-25T22:15:29.983868Z"
+  },
+  {
+    "insertId": "69262a81000ef326f1d31650",
+    "labels": {
+      "instanceId": "00147782962098d021d3fe943494c4aee3dd91a5307a245290d05a0a91acfd5047abe933748d0bc044ca46e579e150d24949c2b8e3948bc346aec7e727e4b49703c285c7f5d114e8768974d89fc64f"
+    },
+    "logName": "projects/cloud-functions-474716/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-11-25T22:15:30.195908530Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "rename-driver-folders-v1-07112025",
+        "location": "us-central1",
+        "project_id": "cloud-functions-474716",
+        "revision_name": "rename-driver-folders-v1-07112025-00027-4j7",
+        "service_name": "rename-driver-folders-v1-07112025"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "2025-11-25 22:15:29,980 - main - INFO - MATCH! Found target folder: 'doc de respaldo' (ID: 190GWFayLTvSYFbS9o4IFmFbwYvlDF0wZ)",
+    "timestamp": "2025-11-25T22:15:29.979750Z"
+  },
+  {
+    "insertId": "69262a81000ef2dc4a5610ff",
+    "labels": {
+      "instanceId": "00147782962098d021d3fe943494c4aee3dd91a5307a245290d05a0a91acfd5047abe933748d0bc044ca46e579e150d24949c2b8e3948bc346aec7e727e4b49703c285c7f5d114e8768974d89fc64f"
+    },
+    "logName": "projects/cloud-functions-474716/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-11-25T22:15:30.195908530Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "rename-driver-folders-v1-07112025",
+        "location": "us-central1",
+        "project_id": "cloud-functions-474716",
+        "revision_name": "rename-driver-folders-v1-07112025-00027-4j7",
+        "service_name": "rename-driver-folders-v1-07112025"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "2025-11-25 22:15:29,980 - main - DEBUG - Found folder: 'doc de respaldo' (ID: 190GWFayLTvSYFbS9o4IFmFbwYvlDF0wZ) in parent 1Q4by0XHi5S_4qOdZH_Fl4jBaX5flIXjn",
+    "timestamp": "2025-11-25T22:15:29.979676Z"
+  },
+  {
+    "insertId": "69262a81000802ee226c16cf",
+    "labels": {
+      "instanceId": "00147782962098d021d3fe943494c4aee3dd91a5307a245290d05a0a91acfd5047abe933748d0bc044ca46e579e150d24949c2b8e3948bc346aec7e727e4b49703c285c7f5d114e8768974d89fc64f"
+    },
+    "logName": "projects/cloud-functions-474716/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-11-25T22:15:29.530886074Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "rename-driver-folders-v1-07112025",
+        "location": "us-central1",
+        "project_id": "cloud-functions-474716",
+        "revision_name": "rename-driver-folders-v1-07112025-00027-4j7",
+        "service_name": "rename-driver-folders-v1-07112025"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "2025-11-25 22:15:29,526 - core.logger_manager - INFO - Logging inicializado (nivel DEBUG, archivo logs/app.log)",
+    "timestamp": "2025-11-25T22:15:29.525038Z"
+  },
+  {
+    "httpRequest": {
+      "latency": "6.078255156s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "181.26.32.85",
+      "requestMethod": "POST",
+      "requestSize": "345",
+      "requestUrl": "https://rename-driver-folders-v1-07112025-702567224563.us-central1.run.app/",
+      "responseSize": "156",
+      "serverIp": "34.143.74.2",
+      "status": 200,
+      "userAgent": "curl/8.16.0"
+    },
+    "insertId": "69262a83000a1b71aa14934a",
+    "labels": {
+      "instanceId": "00147782962098d021d3fe943494c4aee3dd91a5307a245290d05a0a91acfd5047abe933748d0bc044ca46e579e150d24949c2b8e3948bc346aec7e727e4b49703c285c7f5d114e8768974d89fc64f"
+    },
+    "logName": "projects/cloud-functions-474716/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2025-11-25T22:15:31.665466941Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "rename-driver-folders-v1-07112025",
+        "location": "us-central1",
+        "project_id": "cloud-functions-474716",
+        "revision_name": "rename-driver-folders-v1-07112025-00027-4j7",
+        "service_name": "rename-driver-folders-v1-07112025"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "bdd7dbc6c08d621f",
+    "timestamp": "2025-11-25T22:15:25.573557Z",
+    "trace": "projects/cloud-functions-474716/traces/b7cf9fe95dd797531d75ba8e93ac7bf7",
+    "traceSampled": true
+  },
+  {
+    "insertId": "69262a6e000aa1466e957fe4",
+    "labels": {
+      "instanceId": "00147782962098d021d3fe943494c4aee3dd91a5307a245290d05a0a91acfd5047abe933748d0bc044ca46e579e150d24949c2b8e3948bc346aec7e727e4b49703c285c7f5d114e8768974d89fc64f"
+    },
+    "logName": "projects/cloud-functions-474716/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-11-25T22:15:11.014599297Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "rename-driver-folders-v1-07112025",
+        "location": "us-central1",
+        "project_id": "cloud-functions-474716",
+        "revision_name": "rename-driver-folders-v1-07112025-00027-4j7",
+        "service_name": "rename-driver-folders-v1-07112025"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "[2025-11-25 22:15:10 +0000] [2] [INFO] Booting worker with pid: 2",
+    "timestamp": "2025-11-25T22:15:10.696646Z"
+  },
+  {
+    "insertId": "69262a6e000a837cdb31a832",
+    "labels": {
+      "instanceId": "00147782962098d021d3fe943494c4aee3dd91a5307a245290d05a0a91acfd5047abe933748d0bc044ca46e579e150d24949c2b8e3948bc346aec7e727e4b49703c285c7f5d114e8768974d89fc64f"
+    },
+    "logName": "projects/cloud-functions-474716/logs/run.googleapis.com%2Fvarlog%2Fsystem",
+    "receiveTimestamp": "2025-11-25T22:15:10.884688509Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "rename-driver-folders-v1-07112025",
+        "location": "us-central1",
+        "project_id": "cloud-functions-474716",
+        "revision_name": "rename-driver-folders-v1-07112025-00027-4j7",
+        "service_name": "rename-driver-folders-v1-07112025"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "textPayload": "Default STARTUP TCP probe succeeded after 1 attempt for container \"rename-driver-folders-v1-07112025-1\" on port 8080.",
+    "timestamp": "2025-11-25T22:15:10.689020Z"
+  },
+  {
+    "insertId": "69262a6e000a5ff34c39ed22",
+    "labels": {
+      "instanceId": "00147782962098d021d3fe943494c4aee3dd91a5307a245290d05a0a91acfd5047abe933748d0bc044ca46e579e150d24949c2b8e3948bc346aec7e727e4b49703c285c7f5d114e8768974d89fc64f"
+    },
+    "logName": "projects/cloud-functions-474716/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-11-25T22:15:11.014599297Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "rename-driver-folders-v1-07112025",
+        "location": "us-central1",
+        "project_id": "cloud-functions-474716",
+        "revision_name": "rename-driver-folders-v1-07112025-00027-4j7",
+        "service_name": "rename-driver-folders-v1-07112025"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "[2025-11-25 22:15:10 +0000] [1] [INFO] Using worker: sync",
+    "timestamp": "2025-11-25T22:15:10.679923Z"
+  },
+  {
+    "insertId": "69262a6e000a5f2be6c521a4",
+    "labels": {
+      "instanceId": "00147782962098d021d3fe943494c4aee3dd91a5307a245290d05a0a91acfd5047abe933748d0bc044ca46e579e150d24949c2b8e3948bc346aec7e727e4b49703c285c7f5d114e8768974d89fc64f"
+    },
+    "logName": "projects/cloud-functions-474716/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-11-25T22:15:11.014599297Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "rename-driver-folders-v1-07112025",
+        "location": "us-central1",
+        "project_id": "cloud-functions-474716",
+        "revision_name": "rename-driver-folders-v1-07112025-00027-4j7",
+        "service_name": "rename-driver-folders-v1-07112025"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "[2025-11-25 22:15:10 +0000] [1] [INFO] Listening at: http://0.0.0.0:8080 (1)",
+    "timestamp": "2025-11-25T22:15:10.679723Z"
+  },
+  {
+    "insertId": "69262a6e000a56f83a244dfa",
+    "labels": {
+      "instanceId": "00147782962098d021d3fe943494c4aee3dd91a5307a245290d05a0a91acfd5047abe933748d0bc044ca46e579e150d24949c2b8e3948bc346aec7e727e4b49703c285c7f5d114e8768974d89fc64f"
+    },
+    "logName": "projects/cloud-functions-474716/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-11-25T22:15:10.681732944Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "rename-driver-folders-v1-07112025",
+        "location": "us-central1",
+        "project_id": "cloud-functions-474716",
+        "revision_name": "rename-driver-folders-v1-07112025-00027-4j7",
+        "service_name": "rename-driver-folders-v1-07112025"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "[2025-11-25 22:15:10 +0000] [1] [INFO] Starting gunicorn 20.1.0",
+    "timestamp": "2025-11-25T22:15:10.677624Z"
+  },
+  {
+    "insertId": "69262a6d00084ac05d5be6ab",
+    "labels": {
+      "instanceId": "00147782962098d021d3fe943494c4aee3dd91a5307a245290d05a0a91acfd5047abe933748d0bc044ca46e579e150d24949c2b8e3948bc346aec7e727e4b49703c285c7f5d114e8768974d89fc64f",
+      "scaling_reason": "AUTOSCALING"
+    },
+    "logName": "projects/cloud-functions-474716/logs/run.googleapis.com%2Fvarlog%2Fsystem",
+    "receiveTimestamp": "2025-11-25T22:15:09.549629088Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "rename-driver-folders-v1-07112025",
+        "location": "us-central1",
+        "project_id": "cloud-functions-474716",
+        "revision_name": "rename-driver-folders-v1-07112025-00027-4j7",
+        "service_name": "rename-driver-folders-v1-07112025"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "textPayload": "Starting new instance. Reason: AUTOSCALING - Instance started due to configured scaling factors (e.g. CPU utilization, request throughput, etc.) or no existing capacity for current traffic.",
+    "timestamp": "2025-11-25T22:15:09.543424Z"
+  },
+  {
+    "insertId": "-stcbale1fi3u",
+    "logName": "projects/cloud-functions-474716/logs/cloudaudit.googleapis.com%2Fsystem_event",
+    "protoPayload": {
+      "@type": "type.googleapis.com/google.cloud.audit.AuditLog",
+      "methodName": "/Services.ReplaceService",
+      "resourceName": "namespaces/cloud-functions-474716/revisions/rename-driver-folders-v1-07112025-00027-4j7",
+      "response": {
+        "@type": "type.googleapis.com/google.cloud.run.v1.Revision",
+        "apiVersion": "serving.knative.dev/v1",
+        "kind": "Revision",
+        "metadata": {
+          "annotations": {
+            "autoscaling.knative.dev/maxScale": "20",
+            "run.googleapis.com/client-name": "gcloud",
+            "run.googleapis.com/client-version": "548.0.0",
+            "run.googleapis.com/operation-id": "c3a282ad-26ee-4140-9a8b-f1148bf563d4",
+            "serving.knative.dev/creator": "cenf.arg@gmail.com"
+          },
+          "creationTimestamp": "2025-11-25T22:15:04.586861Z",
+          "generation": 1,
+          "labels": {
+            "client.knative.dev/nonce": "nrjgvofahd",
+            "cloud.googleapis.com/location": "us-central1",
+            "run.googleapis.com/startupProbeType": "Default",
+            "serving.knative.dev/configuration": "rename-driver-folders-v1-07112025",
+            "serving.knative.dev/configurationGeneration": "27",
+            "serving.knative.dev/route": "rename-driver-folders-v1-07112025",
+            "serving.knative.dev/service": "rename-driver-folders-v1-07112025",
+            "serving.knative.dev/serviceUid": "085c0ebc-66bd-432c-9e00-c60f72999477"
+          },
+          "name": "rename-driver-folders-v1-07112025-00027-4j7",
+          "namespace": "702567224563",
+          "ownerReferences": [
+            {
+              "apiVersion": "serving.knative.dev/v1",
+              "blockOwnerDeletion": true,
+              "controller": true,
+              "kind": "Configuration",
+              "name": "rename-driver-folders-v1-07112025",
+              "uid": "54ad8c64-4b0e-4d43-8ad5-44059369a458"
+            }
+          ],
+          "resourceVersion": "AAZEcpzSLkc",
+          "selfLink": "/apis/serving.knative.dev/v1/namespaces/702567224563/revisions/rename-driver-folders-v1-07112025-00027-4j7",
+          "uid": "a0dd9275-3a4a-4521-b1d8-0802a071e1f7"
+        },
+        "spec": {
+          "containerConcurrency": 80,
+          "containers": [
+            {
+              "env": [
+                {
+                  "name": "DRIVE_IMPERSONATED_USER",
+                  "valueFrom": {
+                    "secretKeyRef": {
+                      "key": "latest",
+                      "name": "DRIVE_IMPERSONATED_USER"
+                    }
+                  }
+                },
+                {
+                  "name": "GEMINI_API_KEY",
+                  "valueFrom": {
+                    "secretKeyRef": {
+                      "key": "latest",
+                      "name": "GEMINI_API_KEY"
+                    }
+                  }
+                },
+                {
+                  "name": "ROOT_FOLDER_ID",
+                  "valueFrom": {
+                    "secretKeyRef": {
+                      "key": "latest",
+                      "name": "ROOT_FOLDER_ID"
+                    }
+                  }
+                },
+                {
+                  "name": "GCS_BUCKET_NAME",
+                  "valueFrom": {
+                    "secretKeyRef": {
+                      "key": "latest",
+                      "name": "GCS_BUCKET_NAME"
+                    }
+                  }
+                }
+              ],
+              "image": "gcr.io/cloud-functions-474716/rename-driver-folders-v1-07112025@sha256:acf7dc8e5118297d118c98f23811397db2a8ca1d111a34af055c9f3f2d55576c",
+              "name": "rename-driver-folders-v1-07112025-1",
+              "ports": [
+                {
+                  "containerPort": 8080,
+                  "name": "http1"
+                }
+              ],
+              "resources": {
+                "limits": {
+                  "cpu": "1000m",
+                  "memory": "512Mi"
+                }
+              },
+              "startupProbe": {
+                "failureThreshold": 1,
+                "periodSeconds": 240,
+                "tcpSocket": {
+                  "port": 8080
+                },
+                "timeoutSeconds": 240
+              }
+            }
+          ],
+          "serviceAccountName": "702567224563-compute@developer.gserviceaccount.com",
+          "timeoutSeconds": 300
+        },
+        "status": {
+          "conditions": [
+            {
+              "lastTransitionTime": "2025-11-25T22:15:08.244551Z",
+              "message": "Deploying revision succeeded in 3.66s.",
+              "status": "True",
+              "type": "Ready"
+            },
+            {
+              "lastTransitionTime": "2025-11-25T22:15:08.202956Z",
+              "message": "Containers became healthy.",
+              "status": "True",
+              "type": "ContainerHealthy"
+            },
+            {
+              "lastTransitionTime": "2025-11-25T22:15:05.364004Z",
+              "message": "Container image import completed.",
+              "status": "True",
+              "type": "ContainerReady"
+            },
+            {
+              "lastTransitionTime": "2025-11-25T22:15:07.018646Z",
+              "message": "Provisioning imported containers completed in 1.65s. Checking container health. This will wait for up to 4m for the configured startup probe, including an initial delay of 0s.",
+              "status": "True",
+              "type": "ResourcesAvailable"
+            }
+          ],
+          "containerStatuses": [
+            {
+              "imageDigest": "gcr.io/cloud-functions-474716/rename-driver-folders-v1-07112025@sha256:acf7dc8e5118297d118c98f23811397db2a8ca1d111a34af055c9f3f2d55576c",
+              "name": "rename-driver-folders-v1-07112025-1"
+            }
+          ],
+          "imageDigest": "gcr.io/cloud-functions-474716/rename-driver-folders-v1-07112025@sha256:acf7dc8e5118297d118c98f23811397db2a8ca1d111a34af055c9f3f2d55576c",
+          "logUrl": "https://console.cloud.google.com/logs/viewer?project=cloud-functions-474716&resource=cloud_run_revision/service_name/rename-driver-folders-v1-07112025/revision_name/rename-driver-folders-v1-07112025-00027-4j7&advancedFilter=resource.type%3D%22cloud_run_revision%22%0Aresource.labels.service_name%3D%22rename-driver-folders-v1-07112025%22%0Aresource.labels.revision_name%3D%22rename-driver-folders-v1-07112025-00027-4j7%22",
+          "observedGeneration": 1
+        }
+      },
+      "serviceName": "run.googleapis.com",
+      "status": {
+        "message": "Ready condition status changed to True for Revision rename-driver-folders-v1-07112025-00027-4j7 with message: Deploying revision succeeded in 3.66s."
+      }
+    },
+    "receiveTimestamp": "2025-11-25T22:15:09.816151046Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "rename-driver-folders-v1-07112025",
+        "location": "us-central1",
+        "project_id": "cloud-functions-474716",
+        "revision_name": "rename-driver-folders-v1-07112025-00027-4j7",
+        "service_name": "rename-driver-folders-v1-07112025"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "timestamp": "2025-11-25T22:15:08.255939Z"
+  },
+  {
+    "insertId": "69262a6c00032d17e6df2e6b",
+    "labels": {
+      "instanceId": "00147782963259e74708f4e400245d13f486e9f08a63b5923e1701a5b90fd80075eb6d5e855a25da1a37159f0b4124e038d516e84acf03741ece881ab3cd8cf6cf629efef4e4c0694a5679cf84c96d"
+    },
+    "logName": "projects/cloud-functions-474716/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-11-25T22:15:08.520378930Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "rename-driver-folders-v1-07112025",
+        "location": "us-central1",
+        "project_id": "cloud-functions-474716",
+        "revision_name": "rename-driver-folders-v1-07112025-00027-4j7",
+        "service_name": "rename-driver-folders-v1-07112025"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "[2025-11-25 22:15:08 +0000] [2] [INFO] Booting worker with pid: 2",
+    "timestamp": "2025-11-25T22:15:08.208151Z"
+  },
+  {
+    "insertId": "69262a6c0002fb2254b82e9a",
+    "labels": {
+      "instanceId": "00147782963259e74708f4e400245d13f486e9f08a63b5923e1701a5b90fd80075eb6d5e855a25da1a37159f0b4124e038d516e84acf03741ece881ab3cd8cf6cf629efef4e4c0694a5679cf84c96d"
+    },
+    "logName": "projects/cloud-functions-474716/logs/run.googleapis.com%2Fvarlog%2Fsystem",
+    "receiveTimestamp": "2025-11-25T22:15:08.458168135Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "rename-driver-folders-v1-07112025",
+        "location": "us-central1",
+        "project_id": "cloud-functions-474716",
+        "revision_name": "rename-driver-folders-v1-07112025-00027-4j7",
+        "service_name": "rename-driver-folders-v1-07112025"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "textPayload": "Default STARTUP TCP probe succeeded after 1 attempt for container \"rename-driver-folders-v1-07112025-1\" on port 8080.",
+    "timestamp": "2025-11-25T22:15:08.195362Z"
+  },
+  {
+    "insertId": "69262a6c0002cfc8c01768c6",
+    "labels": {
+      "instanceId": "00147782963259e74708f4e400245d13f486e9f08a63b5923e1701a5b90fd80075eb6d5e855a25da1a37159f0b4124e038d516e84acf03741ece881ab3cd8cf6cf629efef4e4c0694a5679cf84c96d"
+    },
+    "logName": "projects/cloud-functions-474716/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-11-25T22:15:08.520378930Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "rename-driver-folders-v1-07112025",
+        "location": "us-central1",
+        "project_id": "cloud-functions-474716",
+        "revision_name": "rename-driver-folders-v1-07112025-00027-4j7",
+        "service_name": "rename-driver-folders-v1-07112025"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "[2025-11-25 22:15:08 +0000] [1] [INFO] Using worker: sync",
+    "timestamp": "2025-11-25T22:15:08.184264Z"
+  },
+  {
+    "insertId": "69262a6c0002cf8ec5d40a88",
+    "labels": {
+      "instanceId": "00147782963259e74708f4e400245d13f486e9f08a63b5923e1701a5b90fd80075eb6d5e855a25da1a37159f0b4124e038d516e84acf03741ece881ab3cd8cf6cf629efef4e4c0694a5679cf84c96d"
+    },
+    "logName": "projects/cloud-functions-474716/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-11-25T22:15:08.520378930Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "rename-driver-folders-v1-07112025",
+        "location": "us-central1",
+        "project_id": "cloud-functions-474716",
+        "revision_name": "rename-driver-folders-v1-07112025-00027-4j7",
+        "service_name": "rename-driver-folders-v1-07112025"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "[2025-11-25 22:15:08 +0000] [1] [INFO] Listening at: http://0.0.0.0:8080 (1)",
+    "timestamp": "2025-11-25T22:15:08.184206Z"
+  },
+  {
+    "insertId": "69262a6c0002c88b1d59d9ee",
+    "labels": {
+      "instanceId": "00147782963259e74708f4e400245d13f486e9f08a63b5923e1701a5b90fd80075eb6d5e855a25da1a37159f0b4124e038d516e84acf03741ece881ab3cd8cf6cf629efef4e4c0694a5679cf84c96d"
+    },
+    "logName": "projects/cloud-functions-474716/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2025-11-25T22:15:08.187445881Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "rename-driver-folders-v1-07112025",
+        "location": "us-central1",
+        "project_id": "cloud-functions-474716",
+        "revision_name": "rename-driver-folders-v1-07112025-00027-4j7",
+        "service_name": "rename-driver-folders-v1-07112025"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "[2025-11-25 22:15:08 +0000] [1] [INFO] Starting gunicorn 20.1.0",
+    "timestamp": "2025-11-25T22:15:08.182411Z"
+  },
+  {
+    "insertId": "69262a6b0001b9a507a4bdf4",
+    "labels": {
+      "instanceId": "00147782963259e74708f4e400245d13f486e9f08a63b5923e1701a5b90fd80075eb6d5e855a25da1a37159f0b4124e038d516e84acf03741ece881ab3cd8cf6cf629efef4e4c0694a5679cf84c96d",
+      "scaling_reason": "DEPLOYMENT_ROLLOUT"
+    },
+    "logName": "projects/cloud-functions-474716/logs/run.googleapis.com%2Fvarlog%2Fsystem",
+    "receiveTimestamp": "2025-11-25T22:15:07.120858100Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "rename-driver-folders-v1-07112025",
+        "location": "us-central1",
+        "project_id": "cloud-functions-474716",
+        "revision_name": "rename-driver-folders-v1-07112025-00027-4j7",
+        "service_name": "rename-driver-folders-v1-07112025"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "textPayload": "Starting new instance. Reason: DEPLOYMENT_ROLLOUT - Instance started due to traffic shifting between revisions due to deployment, traffic split adjustment, or deployment health check.",
+    "timestamp": "2025-11-25T22:15:07.113061Z"
+  }
+]

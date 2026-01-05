@@ -2,9 +2,9 @@
 SETLOCAL
 
 REM --- Configuración ---
-SET GCP_PROJECT_ID=cloud-functions
-SET GCP_REGION=southamerica-east1
-SET SERVICE_NAME=rename-drive-folders
+SET GCP_PROJECT_ID=cloud-functions-474716
+SET GCP_REGION=us-central1
+SET SERVICE_NAME=renombradorarchivosgdrive-worker-v2
 SET IMAGE_NAME=gcr.io/%GCP_PROJECT_ID%/%SERVICE_NAME%
 
 REM --- Variables de Entorno para Cloud Run (deben coincidir con .env) ---
@@ -26,7 +26,7 @@ ECHO.
 
 REM --- Paso 1: Construir la imagen de Docker y subirla a Google Container Registry ---
 ECHO Construyendo imagen Docker...
-gcloud builds submit --tag %IMAGE_NAME% --project %GCP_PROJECT_ID%
+CALL gcloud builds submit . --config services/worker-renombrador/cloudbuild.yaml --substitutions=_IMAGE_NAME=%IMAGE_NAME% --project %GCP_PROJECT_ID%
 IF %ERRORLEVEL% NEQ 0 (
     ECHO Error al construir la imagen Docker. Abortando.
     GOTO :EOF
@@ -61,7 +61,7 @@ REM Para variables que contienen espacios o caracteres especiales, usa comillas 
 SET ENV_VARS_LIST=ROOT_FOLDER_ID="%ROOT_FOLDER_ID%",TARGET_FOLDER_NAMES="%TARGET_FOLDER_NAMES%",GCS_BUCKET_NAME="%GCS_BUCKET_NAME%",GCP_PROJECT_ID="%GCP_PROJECT_ID%",GCP_REGION="%GCP_REGION%",GEMINI_API_KEY="%GEMINI_API_KEY%",SERVICE_ACCOUNT_KEY_B64="%SERVICE_ACCOUNT_KEY_B64%"
 
 
-gcloud run deploy %SERVICE_NAME% ^
+CALL gcloud run deploy %SERVICE_NAME% ^
     --image %IMAGE_NAME% ^
     --platform managed ^
     --region %GCP_REGION% ^

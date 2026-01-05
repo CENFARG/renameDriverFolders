@@ -1,0 +1,256 @@
+{
+    "jobs": [
+        {
+            "id": "job-daily-invoices",
+            "name": "Facturas Diarias",
+            "description": "Procesamiento diario de facturas recibidas",
+            "active": true,
+            "trigger_type": "scheduled",
+            "schedule": "0 8 * * *",
+            "schedule_description": "Todos los días a las 8:00 AM",
+            "source_folder_id": "FOLDER_ID_INVOICES",
+            "target_folder_names": [
+                "facturas diarias",
+                "invoices"
+            ],
+            "agent_config": {
+                "model": {
+                    "name": "gemini-2.0-flash-exp",
+                    "temperature": 0.5,
+                    "max_tokens": 4096
+                },
+                "instructions": "Eres un experto en facturas. Extrae fecha de emisión, proveedor y monto total.",
+                "output_schema": {
+                    "date": "YYYY-MM-DD",
+                    "provider": "str",
+                    "amount": "float",
+                    "keywords": [
+                        "keyword1",
+                        "keyword2"
+                    ]
+                },
+                "prompt_template": "Analiza esta factura: '{original_filename}'. Contenido: {file_content}",
+                "filename_format": "FACTURA_{date}_{provider}_{amount}.{ext}"
+            }
+        },
+        {
+            "id": "job-weekly-reports",
+            "name": "Reportes Semanales",
+            "description": "Consolidación de reportes semanales de operaciones",
+            "active": true,
+            "trigger_type": "scheduled",
+            "schedule": "0 9 * * 1",
+            "schedule_description": "Cada lunes a las 9:00 AM",
+            "source_folder_id": "FOLDER_ID_WEEKLY",
+            "target_folder_names": [
+                "reportes semanales",
+                "weekly reports"
+            ],
+            "agent_config": {
+                "model": {
+                    "name": "gemini-2.0-flash-exp",
+                    "temperature": 0.6,
+                    "max_tokens": 8192
+                },
+                "instructions": "Analiza reportes semanales de operaciones. Extrae semana del año y métricas principales.",
+                "output_schema": {
+                    "date": "YYYY-MM-DD",
+                    "week_number": "int",
+                    "keywords": [
+                        "keyword1",
+                        "keyword2",
+                        "keyword3"
+                    ]
+                },
+                "prompt_template": "Reporte semanal: '{original_filename}'. Contenido: {file_content}",
+                "filename_format": "REPORTE_SEMANAL_{date}_W{week_number}_{keywords}.{ext}"
+            }
+        },
+        {
+            "id": "job-monthly-fiscal",
+            "name": "Documentos Fiscales Mensuales",
+            "description": "Procesamiento mensual de documentos fiscales y contables",
+            "active": true,
+            "trigger_type": "scheduled",
+            "schedule": "0 10 1 * *",
+            "schedule_description": "Primer día de cada mes a las 10:00 AM",
+            "source_folder_id": "FOLDER_ID_MONTHLY",
+            "target_folder_names": [
+                "fiscal mensual",
+                "documentos mensuales"
+            ],
+            "agent_config": {
+                "model": {
+                    "name": "gemini-2.0-flash-exp",
+                    "temperature": 0.4,
+                    "max_tokens": 8192
+                },
+                "instructions": "Analiza documentos fiscales mensuales. Identifica mes, año y tipo de documento fiscal.",
+                "output_schema": {
+                    "date": "YYYY-MM-DD",
+                    "month": "int",
+                    "year": "int",
+                    "doc_type": "str",
+                    "keywords": [
+                        "keyword1",
+                        "keyword2"
+                    ]
+                },
+                "prompt_template": "Documento fiscal mensual: '{original_filename}'. Contenido: {file_content}",
+                "filename_format": "FISCAL_MENSUAL_{year}_{month:02d}_{doc_type}_{keywords}.{ext}"
+            }
+        },
+        {
+            "id": "job-annual-balance-q1",
+            "name": "Balance Anual Q1 (Marzo)",
+            "description": "Cierre de balance primer trimestre",
+            "active": true,
+            "trigger_type": "scheduled",
+            "schedule": "0 12 15 3 *",
+            "schedule_description": "15 de Marzo a las 12:00 PM",
+            "source_folder_id": "FOLDER_ID_ANNUAL_Q1",
+            "target_folder_names": [
+                "balance anual",
+                "cierre trimestral"
+            ],
+            "agent_config": {
+                "model": {
+                    "name": "gemini-2.0-flash-exp",
+                    "temperature": 0.3,
+                    "max_tokens": 16384
+                },
+                "instructions": "Analiza balance trimestral. Extrae período, totales y observaciones principales.",
+                "output_schema": {
+                    "date": "YYYY-MM-DD",
+                    "quarter": "str",
+                    "year": "int",
+                    "keywords": [
+                        "keyword1",
+                        "keyword2"
+                    ]
+                },
+                "prompt_template": "Balance trimestral: '{original_filename}'. Contenido: {file_content}",
+                "filename_format": "BALANCE_{year}_Q1_{keywords}.{ext}"
+            }
+        },
+        {
+            "id": "job-annual-balance-year-end",
+            "name": "Balance Anual Cierre de Ejercicio",
+            "description": "Cierre de balance anual - Diciembre",
+            "active": true,
+            "trigger_type": "scheduled",
+            "schedule": "0 14 31 12 *",
+            "schedule_description": "31 de Diciembre a las 2:00 PM",
+            "source_folder_id": "FOLDER_ID_ANNUAL_YEAREND",
+            "target_folder_names": [
+                "balance anual",
+                "cierre ejercicio"
+            ],
+            "agent_config": {
+                "model": {
+                    "name": "gemini-2.0-flash-exp",
+                    "temperature": 0.3,
+                    "max_tokens": 16384
+                },
+                "instructions": "Analiza balance anual de cierre. Extrae año fiscal, totales anuales y conclusiones.",
+                "output_schema": {
+                    "date": "YYYY-MM-DD",
+                    "fiscal_year": "int",
+                    "keywords": [
+                        "keyword1",
+                        "keyword2",
+                        "keyword3"
+                    ]
+                },
+                "prompt_template": "Balance anual: '{original_filename}'. Contenido: {file_content}",
+                "filename_format": "BALANCE_ANUAL_{fiscal_year}_{keywords}.{ext}"
+            }
+        },
+        {
+            "id": "job-seasonal-tax-deadline",
+            "name": "Temporada Impuestos (Abril)",
+            "description": "Procesamiento intensivo durante temporada de impuestos",
+            "active": true,
+            "trigger_type": "scheduled",
+            "schedule": "0 */4 * 4 *",
+            "schedule_description": "Cada 4 horas durante todo Abril",
+            "source_folder_id": "FOLDER_ID_TAX_SEASON",
+            "target_folder_names": [
+                "impuestos",
+                "tax documents"
+            ],
+            "agent_config": {
+                "model": {
+                    "name": "gemini-2.0-flash-exp",
+                    "temperature": 0.4,
+                    "max_tokens": 8192
+                },
+                "instructions": "Procesa documentos fiscales para declaración de impuestos. Identifica formulario, contribuyente y período.",
+                "output_schema": {
+                    "date": "YYYY-MM-DD",
+                    "form_type": "str",
+                    "taxpayer": "str",
+                    "keywords": [
+                        "keyword1",
+                        "keyword2"
+                    ]
+                },
+                "prompt_template": "Documento fiscal: '{original_filename}'. Contenido: {file_content}",
+                "filename_format": "IMPUESTO_{date}_{form_type}_{taxpayer}_{keywords}.{ext}"
+            }
+        },
+        {
+            "id": "job-manual-adhoc",
+            "name": "Procesamiento Manual Ad-Hoc",
+            "description": "Para documentos que los usuarios envían manualmente desde la UI",
+            "active": true,
+            "trigger_type": "manual",
+            "schedule": null,
+            "schedule_description": "Ejecutado manualmente por usuarios autorizados",
+            "source_folder_id": "DYNAMIC",
+            "target_folder_names": [
+                "*"
+            ],
+            "agent_config": {
+                "model": {
+                    "name": "gemini-2.0-flash-exp",
+                    "temperature": 0.7,
+                    "max_tokens": 8192
+                },
+                "instructions": "Analiza el documento y extrae información relevante de forma genérica.",
+                "output_schema": {
+                    "date": "YYYY-MM-DD",
+                    "keywords": [
+                        "keyword1",
+                        "keyword2",
+                        "keyword3"
+                    ]
+                },
+                "prompt_template": "Documento: '{original_filename}'. Contenido: {file_content}",
+                "filename_format": "DOCPROCESADO_{date}_{keywords}.{ext}"
+            }
+        }
+    ],
+    "schedule_reference": {
+        "cron_format": "MIN HOUR DAY MONTH DAYOFWEEK",
+        "examples": {
+            "daily_8am": "0 8 * * *",
+            "weekly_monday_9am": "0 9 * * 1",
+            "monthly_first_day": "0 10 1 * *",
+            "every_4_hours": "0 */4 * * *",
+            "specific_date": "0 12 15 3 *"
+        }
+    },
+    "domain_whitelist": {
+        "description": "Dominios autorizados para acceso OAuth",
+        "allowed_domains": [
+            "miempresa.com",
+            "cenf.com.ar",
+            "coutinholla.com"
+        ],
+        "allowed_emails": [
+            "admin@miempresa.com",
+            "gonzalo@cenf.com.ar"
+        ]
+    }
+}

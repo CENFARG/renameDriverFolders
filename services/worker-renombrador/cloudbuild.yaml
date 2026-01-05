@@ -1,0 +1,15 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - '$_IMAGE_NAME'
+      - '-f'
+      - 'services/worker-renombrador/Dockerfile.build'
+      - '.'
+    timeout: 1200s
+
+images:
+  - '$_IMAGE_NAME'
+
+timeout: 1200s

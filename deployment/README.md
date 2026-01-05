@@ -1,101 +1,86 @@
-# Guía de Despliegue en Google Cloud Run
+# Guía de Despliegue en Google Cloud Run con Cloud Code
 
-Esta guía te ayudará a desplegar la aplicación `renameDriverFolders` en Google Cloud Run. Se cubren dos métodos: el despliegue recomendado a través de **VS Code con la extensión Cloud Code** (más sencillo para usuarios no expertos) y un método manual usando scripts.
+Esta guía detalla el proceso para desplegar la aplicación `renameDriverFolders` en Google Cloud Run, utilizando la extensión [Cloud Code para VS Code](https://cloud.google.com/code/docs/vscode/install) y gestionando los secretos con [Google Secret Manager](https://cloud.google.com/secret-manager).
 
-## 1. Despliegue con VS Code y Cloud Code (Recomendado)
+## 1. Prerrequisitos
 
-Este es el método más sencillo y recomendado para desplegar la aplicación en Google Cloud Run, especialmente si no estás familiarizado con la línea de comandos de `gcloud`.
+Antes de comenzar, asegúrate de tener instalado y configurado lo siguiente:
 
-### Requisitos Previos
+1. **Google Cloud SDK:** [Instrucciones de instalación](https://cloud.google.com/sdk/docs/install).
+2. **Docker:** Debe estar instalado y corriendo en tu máquina. [Instrucciones de instalación](https://docs.docker.com/get-docker/).
+3. **Visual Studio Code:** [Descargar aquí](https://code.visualstudio.com/).
+4. **Extensión Cloud Code para VS Code:** [Instalar desde el Marketplace](https://marketplace.visualstudio.com/items?itemName=GoogleCloudTools.cloudcode).
 
-1.  **VS Code**: Asegúrate de tener Visual Studio Code instalado.
-2.  **Extensión Cloud Code**: Instala la extensión "Cloud Code" para VS Code. Puedes encontrarla en el Marketplace de VS Code.
-3.  **Google Cloud SDK**: Asegúrate de tener `gcloud CLI` instalado y configurado en tu máquina. Cloud Code lo utilizará internamente.
-4.  **Autenticación**: Debes estar autenticado en `gcloud` con una cuenta que tenga los permisos necesarios para:
-    *   Construir imágenes de Docker (Cloud Build).
-    *   Subir imágenes a Google Container Registry (o Artifact Registry).
-    *   Desplegar servicios en Google Cloud Run.
-    *   Acceder a Google Cloud Storage y Vertex AI (para Gemini).
-    *   Acceder a Google Drive.
-    Puedes autenticarte ejecutando `gcloud auth login` y `gcloud config set project [TU_PROYECTO_ID]` en tu terminal.
+## 2. Configuración de Secret Manager
 
-### Configuración de Variables de Entorno con Secret Manager
+Para mantener la seguridad, todas las variables sensibles se gestionarán a través de Secret Manager. Debes crear un secreto por cada variable de entorno requerida.
 
-Para las variables sensibles (`SERVICE_ACCOUNT_KEY_B64` y `GEMINI_API_KEY`), utilizaremos **Google Secret Manager**. Esto es una buena práctica de seguridad y facilita la gestión de credenciales.
+**Pasos:**
 
-1.  **Crea los Secretos en Google Secret Manager**:
-    *   Ve a la consola de Google Cloud y busca "Secret Manager".
-    *   Crea un nuevo secreto para `SERVICE_ACCOUNT_KEY_B64`. El valor del secreto debe ser el contenido Base64 de tu clave JSON de la cuenta de servicio.
-    *   Crea otro secreto para `GEMINI_API_KEY`. El valor del secreto debe ser tu clave de API de Gemini.
-    *   Asegúrate de que la cuenta de servicio que usará Cloud Run tenga permisos para acceder a estos secretos.
+1. Ve a la [página de Secret Manager](https://console.cloud.google.com/security/secret-manager) en tu Google Cloud Console.
+2. Asegúrate de estar en el proyecto correcto.
+3. Haz clic en **"Crear Secreto"** y crea los siguientes secretos. El valor de cada secreto debe ser el mismo que tienes en tu archivo `.env` local.
 
-2.  **Configura las Variables de Entorno en Cloud Code**:
-    *   En VS Code, abre la paleta de comandos (Ctrl+Shift+P o Cmd+Shift+P) y busca "Cloud Code: Deploy to Cloud Run".
-    *   Sigue los pasos del asistente. Cuando llegues a la sección de "Environment Variables", deberás configurar:
-        *   **Variables normales**: `ROOT_FOLDER_ID`, `TARGET_FOLDER_NAMES`, `GCS_BUCKET_NAME`, `GCP_PROJECT_ID`, `GCP_REGION`. Introduce sus valores directamente.
-        *   **Variables de Secret Manager**: Para `SERVICE_ACCOUNT_KEY_B64` y `GEMINI_API_KEY`, selecciona la opción para referenciar un secreto de Secret Manager. Deberás especificar el nombre del secreto que creaste y la versión (normalmente `latest`).
+| Nombre del Secreto          | Valor del Secreto                                        |
+| --------------------------- | -------------------------------------------------------- |
+| `ROOT_FOLDER_ID`          | El ID de la carpeta raíz de Google Drive a monitorear.  |
+| `GCS_BUCKET_NAME`         | El nombre de tu bucket de Google Cloud Storage.          |
+| `SERVICE_ACCOUNT_KEY_B64` | La clave de tu cuenta de servicio, codificada en Base64. |
+| `DRIVE_IMPERSONATED_USER` | El email del usuario a suplantar en Google Drive.        |
+| `GEMINI_API_KEY`          | Tu clave de API para el modelo Gemini.                   |
 
-### Pasos para el Despliegue con Cloud Code
+**Importante:** Al crear cada secreto, asígnale el nombre exacto como se muestra en la tabla.
 
-1.  **Abre el proyecto** `renameDriverFolders` en VS Code.
-2.  **Abre la paleta de comandos** (Ctrl+Shift+P o Cmd+Shift+P).
-3.  **Busca y selecciona "Cloud Code: Deploy to Cloud Run"**.
-4.  **Sigue el asistente**:
-    *   Selecciona tu proyecto de Google Cloud.
-    *   Elige la región de Cloud Run.
-    *   Configura las variables de entorno (como se explicó anteriormente, usando Secret Manager para las sensibles).
-    *   Asegúrate de que el `Dockerfile` sea detectado correctamente.
-    *   Confirma el despliegue.
+## 3. Despliegue con la Extensión Cloud Code
 
-Cloud Code se encargará de construir la imagen de Docker, subirla a Google Container Registry (o Artifact Registry) y desplegarla en Cloud Run, inyectando las variables de entorno y los secretos configurados.
+Cloud Code simplifica enormemente el proceso de construcción del contenedor y despliegue.
 
-## 2. Despliegue Manual (Usando `deploy_manual.bat`)
+**Pasos:**
 
-Este método es para usuarios más avanzados que prefieren usar la línea de comandos.
+1. Abre este proyecto en VS Code.
+2. Abre la paleta de comandos: `Ctrl+Shift+P` (o `Cmd+Shift+P` en Mac).
+3. Escribe y selecciona **`Cloud Code: Deploy to Cloud Run`**.
+4. Aparecerá un panel de configuración. Rellénalo de la siguiente manera:
 
-### Requisitos Previos
+   * **Service name:** Elige un nombre para tu servicio (ej. `renamedriverfolders`).
+   * **Region:** Selecciona la región donde quieres desplegar (ej. `us-central1`).
+   * **Authentication:** Selecciona **`Allow unauthenticated invocations`**. La seguridad la manejaremos con Cloud Scheduler.
+5. **Vincular los Secretos:** Esta es la parte más importante.
 
-1.  **Google Cloud SDK**: Asegúrate de tener `gcloud CLI` instalado y configurado en tu máquina.
-2.  **Autenticación**: Debes estar autenticado en `gcloud` con una cuenta que tenga los permisos necesarios (ver sección anterior).
-3.  **Variables de Entorno**: Tu archivo `.env` local contiene las configuraciones necesarias. **Antes de ejecutar el script `deploy_manual.bat`, debes asegurarte de que estas variables de entorno estén configuradas en tu sesión de terminal.** El script `deploy_manual.bat` las leerá de tu entorno de shell para pasarlas a Cloud Run.
+   * Expande la sección **`Environment variables`**.
+   * Haz clic en **`Add Environment Variable`** cinco veces para crear cinco entradas.
+   * Para cada entrada, configúrala de la siguiente manera:
 
-    **Ejemplo de cómo configurar una variable de entorno en Windows CMD:**
-    ```cmd
-    set ROOT_FOLDER_ID="tu_id_de_carpeta"
-    set TARGET_FOLDER_NAMES="[\"Doc de Respaldo\"]" REM Nota: las comillas internas deben escaparse
-    set GCS_BUCKET_NAME="tu_bucket"
-    set GCP_PROJECT_ID="tu_proyecto"
-    set GCP_REGION="tu_region"
-    set SERVICE_ACCOUNT_KEY_B64="tu_clave_base64"
-    set GEMINI_API_KEY="tu_api_key"
-    ```
-    **¡Importante!** Para `TARGET_FOLDER_NAMES`, si contiene comillas dobles internas, estas deben ser escapadas con una barra invertida (`\"`) cuando se define como variable de entorno en la línea de comandos de Windows.
+| Name                        | Type       | Key                                  |
+| --------------------------- | ---------- | ------------------------------------ |
+| `ROOT_FOLDER_ID`          | `Secret` | `ROOT_FOLDER_ID` (latest)          |
+| `GCS_BUCKET_NAME`         | `Secret` | `GCS_BUCKET_NAME` (latest)         |
+| `SERVICE_ACCOUNT_KEY_B64` | `Secret` | `SERVICE_ACCOUNT_KEY_B64` (latest) |
+| `DRIVE_IMPERSONATED_USER` | `Secret` | `DRIVE_IMPERSONATED_USER` (latest) |
+| `GEMINI_API_KEY`          | `Secret` | `GEMINI_API_KEY` (latest)          |
 
-### Pasos para el Despliegue Manual
+    *   Para cada una, en`Type`, selecciona `Secret`. En `Key`, busca y selecciona el secreto correspondiente que creaste en el paso anterior, asegurándote de elegir la versión `latest`.
 
-1.  **Navega al directorio `deployment`** en tu terminal.
+6. Haz clic en el botón **`Deploy`**.
 
-    ```cmd
-    cd deployment
-    ```
+Cloud Code ahora construirá la imagen de Docker, la subirá a Google Container Registry y desplegará tu servicio en Cloud Run con la configuración y los secretos especificados. Al finalizar, te proporcionará la URL del servicio desplegado.
 
-2.  **Configura las variables de entorno** necesarias en tu sesión de terminal (como se explica en la sección de Requisitos Previos).
+## 4. Configuración de Cloud Scheduler (Ejecución Periódica)
 
-3.  **Ejecuta el script de despliegue manual**:
+Finalmente, crearemos una tarea programada para que llame a nuestra aplicación automáticamente.
 
-    ```cmd
-    deploy_manual.bat
-    ```
+**Pasos:**
 
-El script realizará los siguientes pasos:
+1. Ve a la [página de Cloud Scheduler](https://console.cloud.google.com/cloudscheduler) en tu Google Cloud Console.
+2. Haz clic en **"Crear un trabajo"**.
+3. **Define la frecuencia:** Usa un formato cron. Por ejemplo, para ejecutarlo cada hora, escribe `0 * * * *`.
+4. **Configura el destino:**
+   * **Tipo de destino:** `HTTP`
+   * **URL:** Pega la URL de tu servicio de Cloud Run que obtuviste en el paso anterior.
+   * **Método HTTP:** `POST`
+5. **Configura la autenticación:**
+   * **Añadir encabezado de autenticación:** `OIDC token`.
+   * **Cuenta de servicio:** Selecciona una cuenta de servicio que tenga permisos para invocar servicios de Cloud Run (puedes usar la cuenta de servicio de cómputo por defecto o crear una específica para mayor seguridad).
+6. Haz clic en **"Crear"**.
 
-*   Construirá la imagen de Docker de tu aplicación y la subirá a Google Container Registry.
-*   Desplegará esta imagen como un nuevo servicio en Google Cloud Run en la región especificada.
-*   Configurará las variables de entorno en el servicio de Cloud Run utilizando las que hayas definido en tu sesión de terminal.
-*   El servicio se configurará para permitir invocaciones no autenticadas (`--allow-unauthenticated`), lo cual es útil para pruebas, pero considera cambiarlo en producción.
-
-## Después del Despliegue
-
-Una vez que el despliegue sea exitoso, `gcloud` te proporcionará la URL del servicio de Cloud Run. Podrás acceder a tu aplicación a través de esa URL.
-
-Para activar el procesamiento de archivos, deberás enviar una petición `POST` a esa URL (similar a cómo lo harías localmente con `curl`).
+¡Listo! Ahora tienes un sistema completamente automatizado que se ejecutará en la frecuencia que definiste, procesando tus archivos de Google Drive de forma segura y eficiente.

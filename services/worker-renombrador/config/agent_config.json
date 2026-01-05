@@ -1,0 +1,16 @@
+[
+  {
+    "agent_id": "renamer_v1",
+    "name": "RenamerAgent",
+    "instructions": "Analiza el contenido de un archivo de Google Drive y genera un nombre estandarizado siguiendo las reglas de CENF.",
+    "model": {
+      "id": "gemini-2.5-flash",
+      "provider": "google"
+    },
+    "tools": [],
+    "output_schema": {
+      "keywords": [],
+      "date": "YYYY-MM-DD"
+    }
+  }
+]

@@ -1,0 +1,14 @@
+steps:
+  # Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/cloud-functions-474716/renombradorarchivosgdrive-frontend-v2:latest', '.']
+    dir: 'services/frontend'
+  
+  # Push the container image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/cloud-functions-474716/renombradorarchivosgdrive-frontend-v2:latest']
+  
+images:
+  - 'gcr.io/cloud-functions-474716/renombradorarchivosgdrive-frontend-v2:latest'
+
+timeout: '1200s'

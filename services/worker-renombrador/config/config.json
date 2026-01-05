@@ -1,0 +1,33 @@
+{
+  "app_info": {
+    "name": "Worker Renombrador",
+    "version": "1.0.0",
+    "description": "Microservicio worker para renombrado de archivos en Google Drive."
+  },
+  "logging": {
+    "level": "DEBUG",
+    "file": "logs/worker.log",
+    "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  },
+  "google_cloud": {
+    "target_folder_names": [
+      "doc de respaldo",
+      "test_integrado"
+    ],
+    "token_file_name": "drive_changes_token.json"
+  },
+  "gemini": {
+    "model_name": "gemini-2.5-flash"
+  },
+  "prompt_config": {
+    "prompt_template": "Analiza el siguiente contenido del archivo '{original_filename}' y extrae las palabras clave y la fecha. Contenido: {file_content}",
+    "json_structure": {
+      "keywords": [
+        "palabra_clave_1",
+        "palabra_clave_2"
+      ],
+      "date": "YYYY-MM-DD"
+    },
+    "new_filename_format": "DOCPROCESADO_{date}_{keywords}.ext"
+  }
+}

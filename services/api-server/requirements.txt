@@ -1,0 +1,21 @@
+# API Server - Dependencies
+# Updated: 2025-12-09
+
+# Core framework
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.0.0
+
+# Google Cloud
+google-cloud-tasks>=2.14.0
+google-auth>=2.25.0
+google-auth-httplib2>=0.1.1
+google-cloud-secret-manager>=2.16.0
+google-cloud-storage>=2.13.0
+
+# Flask (required by oauth_security module from core_renombrador)
+flask>=3.0.0
+python-dotenv>=1.0.0
+
+# The core_renombrador package (installed via Dockerfile)
+# Includes: config_manager, logger_manager, database_manager, oauth_security, etc.
