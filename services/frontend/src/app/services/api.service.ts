@@ -25,6 +25,36 @@ export class ApiService {
         );
     }
 
+    getJobs(): Observable<any[]> {
+        const headers = this.getAuthHeaders();
+        return this.http.get<any[]>(`${this.apiUrl}/api/v1/jobs`, { headers });
+    }
+
+    getJob(id: string): Observable<any> {
+        const headers = this.getAuthHeaders();
+        return this.http.get<any>(`${this.apiUrl}/api/v1/jobs/${id}`, { headers });
+    }
+
+    createJob(job: any): Observable<any> {
+        const headers = this.getAuthHeaders();
+        return this.http.post<any>(`${this.apiUrl}/api/v1/jobs`, job, { headers });
+    }
+
+    updateJob(id: string, job: any): Observable<any> {
+        const headers = this.getAuthHeaders();
+        return this.http.put<any>(`${this.apiUrl}/api/v1/jobs/${id}`, job, { headers });
+    }
+
+    deleteJob(id: string): Observable<any> {
+        const headers = this.getAuthHeaders();
+        return this.http.delete<any>(`${this.apiUrl}/api/v1/jobs/${id}`, { headers });
+    }
+
+    getAuditLogs(limit: number = 100): Observable<any[]> {
+        const headers = this.getAuthHeaders();
+        return this.http.get<any[]>(`${this.apiUrl}/api/v1/audit-logs?limit=${limit}`, { headers });
+    }
+
     private getAuthHeaders(): HttpHeaders {
         const token = this.authService.getToken();
         return new HttpHeaders({
