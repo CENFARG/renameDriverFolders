@@ -1,0 +1,54 @@
+# .gcloudignore for Cloud Build
+# This file tells gcloud which files to EXCLUDE from the build context
+
+# Python
+__pycache__/
+*.pyc
+*.pyd
+*.pyo
+.venv/
+
+# Node
+node_modules/
+.angular/
+
+# IDE
+.vscode/
+
+# Logs
+*.log
+logs/
+
+# Credentials (keep these out!)
+.credentials/
+credentials.json
+drive_changes_token.json
+credencial_b64.txt
+.env
+temp_secret.txt
+
+# Data/Temp
+data/
+outputs/
+temp/
+tests/manual/
+
+# Backup
+*_old*
+*.bak
+
+# Context/Docs
+.context/
+.lessons/
+.opencode/
+.standars_code/
+.memory/
+agno-docs/
+
+# IMPORTANT: DO NOT ignore these files needed for build
+!package.json
+!package-lock.json
+!tsconfig.json
+!tsconfig.app.json
+!tsconfig.spec.json
+!tailwind.config.js
