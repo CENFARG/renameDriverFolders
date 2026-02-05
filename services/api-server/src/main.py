@@ -643,6 +643,53 @@ async def list_jobs(request: Request):
         )
 
 
+@app.get("/api/v1/audit-logs")
+async def get_audit_logs(request: Request, limit: int = 100):
+    """
+    Get audit logs for system activity.
+    Obtener logs de auditoría de actividad del sistema.
+    
+    Requires OAuth authentication.
+    
+    Query Parameters:
+        limit: Maximum number of logs to return (default: 100, max: 1000)
+    """
+    user_info = verify_oauth_token(request)
+    
+    # Validate limit
+    if limit > 1000:
+        limit = 1000
+    
+    try:
+        # For now, return mock data until we implement proper audit logging
+        # TODO: Implement proper audit log storage and retrieval
+        audit_logs = [
+            {
+                "id": "log-001",
+                "timestamp": "2026-02-05T20:00:00Z",
+                "user_email": user_info["email"],
+                "action": "job_submitted",
+                "status": "success",
+                "details": "Manual job submission for folder processing"
+            }
+        ]
+        
+        logger.info(f"Audit logs requested by {user_info['email']}, limit={limit}")
+        
+        return {
+            "status": "success",
+            "logs": audit_logs[:limit],
+            "total": len(audit_logs)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error retrieving audit logs: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve audit logs: {str(e)}"
+        )
+
+
 # --- Error Handlers ---
 
 @app.exception_handler(401)
