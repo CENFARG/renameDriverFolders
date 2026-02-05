@@ -30,6 +30,11 @@ export class ApiService {
         return this.http.get<any[]>(`${this.apiUrl}/api/v1/jobs`, { headers });
     }
 
+    listJobs(): Observable<{ jobs: any[] }> {
+        const headers = this.getAuthHeaders();
+        return this.http.get<{ jobs: any[] }>(`${this.apiUrl}/api/v1/jobs`, { headers });
+    }
+
     getJob(id: string): Observable<any> {
         const headers = this.getAuthHeaders();
         return this.http.get<any>(`${this.apiUrl}/api/v1/jobs/${id}`, { headers });
