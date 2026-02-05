@@ -55,9 +55,9 @@ export class ApiService {
         return this.http.delete<any>(`${this.apiUrl}/api/v1/jobs/${id}`, { headers });
     }
 
-    getAuditLogs(limit: number = 100): Observable<any[]> {
+    getAuditLogs(limit: number = 100): Observable<{ logs: any[] }> {
         const headers = this.getAuthHeaders();
-        return this.http.get<any[]>(`${this.apiUrl}/api/v1/audit-logs?limit=${limit}`, { headers });
+        return this.http.get<{ logs: any[] }>(`${this.apiUrl}/api/v1/audit-logs?limit=${limit}`, { headers });
     }
 
     private getAuthHeaders(): HttpHeaders {
