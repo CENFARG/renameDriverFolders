@@ -14,7 +14,13 @@ export class ApiService {
     constructor(
         private http: HttpClient,
         private authService: AuthService
-    ) { }
+    ) {
+        // DEBUG: Log environment info
+        console.log('🔍 ApiService initialized');
+        console.log('🌍 Environment production:', environment.production);
+        console.log('🔗 API URL configured:', this.apiUrl);
+        console.log('📋 Full environment:', environment);
+    }
 
     submitJob(job: Job): Observable<JobResponse> {
         const headers = this.getAuthHeaders();
