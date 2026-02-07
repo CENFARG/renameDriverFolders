@@ -643,6 +643,119 @@ async def list_jobs(request: Request):
         )
 
 
+@app.get("/api/v1/jobs/{job_id}")
+async def get_job(job_id: str, request: Request):
+    """
+    Get a single job configuration by ID.
+    Obtener una configuración de trabajo individual por ID.
+    
+    Requires OAuth authentication.
+    """
+    user_info = verify_oauth_token(request)
+    
+    try:
+        jobs = db_manager.find("id", job_id)
+        
+        if not jobs or len(jobs) == 0:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Job '{job_id}' not found"
+            )
+        
+        logger.info(f"Job '{job_id}' retrieved by {user_info['email']}")
+        
+        return jobs[0]
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving job {job_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve job: {str(e)}"
+        )
+
+
+@app.put("/api/v1/jobs/{job_id}")
+async def update_job(job_id: str, job_data: dict, request: Request):
+    """
+    Update an existing job configuration.
+    Actualizar una configuración de trabajo existente.
+    
+    Requires OAuth authentication.
+    """
+    user_info = verify_oauth_token(request)
+    
+    try:
+        existing = db_manager.find("id", job_id)
+        
+        if not existing or len(existing) == 0:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Job '{job_id}' not found"
+            )
+        
+        # Update job in database
+        job_data["id"] = job_id  # Ensure ID doesn't change
+        db_manager.update("id", job_id, job_data)
+        
+        logger.info(f"Job '{job_id}' updated by {user_info['email']}")
+        
+        return {
+            "status": "success",
+            "message": f"Job '{job_id}' updated successfully",
+            "job": job_data
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating job {job_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to update job: {str(e)}"
+        )
+
+
+@app.delete("/api/v1/jobs/{job_id}")
+async def delete_job(job_id: str, request: Request):
+    """
+    Delete a job configuration.
+    Eliminar una configuración de trabajo.
+    
+    Requires OAuth authentication.
+    """
+    user_info = verify_oauth_token(request)
+    
+    try:
+        existing = db_manager.find("id", job_id)
+        
+        if not existing or len(existing) == 0:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Job '{job_id}' not found"
+            )
+        
+        # Delete job
+        db_manager.delete("id", job_id)
+        
+        logger.info(f"Job '{job_id}' deleted by {user_info['email']}")
+        
+        return {
+            "status": "success",
+            "message": f"Job '{job_id}' deleted successfully"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting job {job_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to delete job: {str(e)}"
+        )
+
+
 @app.get("/api/v1/audit-logs")
 async def get_audit_logs(request: Request, limit: int = 100):
     """
@@ -661,24 +774,26 @@ async def get_audit_logs(request: Request, limit: int = 100):
         limit = 1000
     
     try:
-        # For now, return mock data until we implement proper audit logging
-        # TODO: Implement proper audit log storage and retrieval
-        audit_logs = [
-            {
-                "id": "log-001",
-                "timestamp": "2026-02-05T20:00:00Z",
-                "user_email": user_info["email"],
-                "action": "job_submitted",
-                "status": "success",
-                "details": "Manual job submission for folder processing"
-            }
-        ]
+        # Get all jobs as proxy for audit data
+        all_jobs = db_manager.find_all()
         
-        logger.info(f"Audit logs requested by {user_info['email']}, limit={limit}")
+        # Convert jobs to audit log format
+        audit_logs = []
+        for job in all_jobs[-limit:]:  # Last N jobs
+            audit_logs.append({
+                "id": f"log-{job.get('id', 'unknown')}",
+                "timestamp": "2026-02-06T17:00:00Z",  # TODO: Add real timestamps
+                "user_email": user_info["email"],
+                "action": "job_configured",
+                "status": "active" if job.get("active") else "inactive",
+                "details": f"Job: {job.get('name', job.get('id'))}"
+            })
+        
+        logger.info(f"Audit logs requested by {user_info['email']}, limit={limit}, returned {len(audit_logs)} logs")
         
         return {
             "status": "success",
-            "logs": audit_logs[:limit],
+            "logs": audit_logs,
             "total": len(audit_logs)
         }
         
