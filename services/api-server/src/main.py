@@ -821,19 +821,26 @@ async def get_audit_logs(request: Request, limit: int = 100):
         limit = 1000
     
     try:
-        # Get all jobs as proxy for audit data
-        all_jobs = db_manager.find_all()
+        # Get all job executions (newest first)
+        all_executions = executions_manager.find_all()
         
-        # Convert jobs to audit log format
+        # Sort by timestamp (newest first)
+        all_executions.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+        
+        # Limit results
+        limited_executions = all_executions[:limit]
+        
+        # Convert to audit log format
         audit_logs = []
-        for job in all_jobs[-limit:]:  # Last N jobs
+        for exec in limited_executions:
             audit_logs.append({
-                "id": f"log-{job.get('id', 'unknown')}",
-                "timestamp": "2026-02-06T17:00:00Z",  # TODO: Add real timestamps
-                "user_email": user_info["email"],
-                "action": "job_configured",
-                "status": "active" if job.get("active") else "inactive",
-                "details": f"Job: {job.get('name', job.get('id'))}"
+                "id": exec.get("id"),
+                "timestamp": exec.get("timestamp"),
+                "user_email": exec.get("user_email"),
+                "user_name": exec.get("user_name"),
+                "action": "job_submitted",
+                "status": exec.get("status", "submitted"),
+                "details": f"Folder: {exec.get('folder_id')} | Type: {exec.get('job_type')}"
             })
         
         logger.info(f"Audit logs requested by {user_info['email']}, limit={limit}, returned {len(audit_logs)} logs")
