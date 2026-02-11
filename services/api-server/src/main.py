@@ -522,8 +522,37 @@ async def submit_manual_job(
         "submitted_by": user_info["email"]
     }
     
+    # Log execution for audit trail (before task creation)
+    import time
+    from datetime import datetime
+    
+    execution_log = {
+        "id": f"exec-{int(time.time() * 1000)}",  # timestamp-based ID
+        "user_email": user_info["email"],
+        "user_name": user_info.get("name", "Unknown"),
+        "folder_id": job_request.folder_id,
+        "job_type": job_request.job_type,
+        "job_config_id": job_id,
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "status": "submitted",
+        "task_id": None  # Will be updated after task creation
+    }
+    
+    try:
+        executions_manager.insert(execution_log)
+        logger.info(f"Job execution logged: {execution_log['id']}")
+    except Exception as e:
+        logger.error(f"Failed to log execution (non-fatal): {e}")
+        # Continue anyway - logging failure shouldn't block job submission
+    
     try:
         task_id = create_cloud_task(payload)
+        
+        # Update execution log with task_id
+        try:
+            executions_manager.update("id", execution_log["id"], {"task_id": task_id})
+        except Exception as e:
+            logger.error(f"Failed to update execution with task_id (non-fatal): {e}")
         
         logger.info(
             f"Manual job accepted. User: {user_info['email']}, "
