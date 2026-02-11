@@ -82,6 +82,7 @@ use_supabase = os.environ.get("USE_SUPABASE", "false").lower() == "true"
 
 use_gcs = os.environ.get("USE_GCS", "false").lower() == "true" or "GCS_BUCKET_NAME" in os.environ
 
+# Job Configurations Manager
 if use_supabase:
     db_manager = DatabaseManager(use_supabase=True, table_name="jobs")
     logger.info("DatabaseManager initialized in Supabase mode")
@@ -97,6 +98,23 @@ else:
         db_path="data/jobs.json"
     )
     logger.info("DatabaseManager initialized in JSON mode")
+
+# Job Executions Manager (for audit logs)
+if use_supabase:
+    executions_manager = DatabaseManager(use_supabase=True, table_name="job_executions")
+    logger.info("Executions DatabaseManager initialized in Supabase mode")
+elif use_gcs:
+    executions_manager = DatabaseManager(
+        use_gcs=True,
+        table_name="job_executions"
+    )
+    logger.info("Executions DatabaseManager initialized in GCS mode")
+else:
+    executions_manager = DatabaseManager(
+        file_manager=file_manager,
+        db_path="data/job_executions.json"
+    )
+    logger.info("Executions DatabaseManager initialized in JSON mode")
 
 # OAuth Security Manager
 oauth_manager = None
