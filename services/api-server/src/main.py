@@ -663,18 +663,28 @@ async def list_jobs(request: Request):
     try:
         all_jobs = db_manager.find_all()
         
-        # Filter sensitive info
-        jobs_summary = [
-            {
-                "id": job.get("id"),
-                "name": job.get("name"),
-                "description": job.get("description"),
-                "active": job.get("active"),
-                "trigger_type": job.get("trigger_type"),
+        # Filter sensitive info and ensure ID is present
+        jobs_summary = []
+        for job in all_jobs:
+            # Defensive check: ensure id is present
+            job_id = job.get("id") or job.get("job_id")
+            
+            # Fallback if both are missing (e.g., corrupted or old data)
+            if not job_id and job.get("source_folder_id"):
+                job_id = f"job-folder-{job.get('source_folder_id')[:8]}"
+            
+            if not job_id:
+                logger.warning(f"Skipping job configuration with missing ID: {job}")
+                continue
+                
+            jobs_summary.append({
+                "id": job_id,
+                "name": job.get("name", job_id),
+                "description": job.get("description", ""),
+                "active": job.get("active", True),
+                "trigger_type": job.get("trigger_type", "manual"),
                 "schedule": job.get("schedule")
-            }
-            for job in all_jobs
-        ]
+            })
         
         return {
             "status": "success",
