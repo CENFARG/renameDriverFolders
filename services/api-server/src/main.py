@@ -269,54 +269,77 @@ def create_cloud_task(payload: dict) -> str:
     return task_id
 
 
-def verify_oauth_token(request: Request) -> dict:
+def verify_auth(request: Request) -> dict:
     """
-    Verify OAuth token from request.
-    Verifica token OAuth desde request.
-    
-    Returns:
-        User info dict.
+    Verify authentication from request (IAP or OAuth).
+    Verifica autenticación desde request (IAP o OAuth).
     """
+    # 1. Try IAP (Priority)
+    iap_jwt = request.headers.get("X-Goog-IAP-JWT-Assertion")
+    if iap_jwt:
+        try:
+            # For IAP, we verify the token from Google's IAP issuer
+            # Note: audience validation is recommended but varies by deployment
+            from google.auth.transport import requests as auth_requests
+            from google.oauth2 import id_token
+            
+            # Verify the JWT
+            # The 'aud' should be validated in production (passed via env)
+            expected_audience = os.getenv("IAP_AUDIENCE")
+            
+            payload = id_token.verify_oauth2_token(
+                iap_jwt, 
+                auth_requests.Request(),
+                audience=expected_audience
+            )
+            
+            if payload.get("iss") != "https://cloud.google.com/iap":
+                raise ValueError("Invalid issuer")
+                
+            user_info = {
+                "email": payload.get("email"),
+                "sub": payload.get("sub"),
+                "domain": payload.get("email", "").split("@")[-1],
+                "auth_type": "iap"
+            }
+            
+            # Simple domain authorization check
+            if not oauth_manager.is_authorized(user_info):
+                logger.warning(f"IAP User {user_info['email']} not authorized for domain")
+                raise HTTPException(status_code=403, detail="Unauthorized")
+                
+            return user_info
+            
+        except Exception as e:
+            logger.error(f"IAP verification failed: {e}")
+            # Don't fail yet, try OAuth fallback for dev
+            pass
+
+    # 2. Try legacy OAuth (Fallback/Dev)
     if not oauth_manager:
-        raise HTTPException(
-            status_code=503,
-            detail="OAuth not configured on server"
-        )
-    
-    # Extract token from Authorization header (FastAPI compatible)
+        raise HTTPException(status_code=503, detail="Auth not configured")
+        
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
-        raise HTTPException(
-            status_code=401,
-            detail="Missing or invalid Authorization header"
-        )
-    
+        raise HTTPException(status_code=401, detail="Authentication required")
+        
     token = auth_header.split("Bearer ")[1]
     
-    # Verify token directly
     try:
         user_info = oauth_manager.verify_token(token)
+        user_info["auth_type"] = "oauth"
+        
+        if not oauth_manager.is_authorized(user_info):
+            raise HTTPException(status_code=403, detail="Unauthorized")
+            
+        return user_info
     except Exception as e:
-        logger.warning(f"Token verification failed: {e}")
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid or expired authentication token"
-        )
-    
-    if not oauth_manager.is_authorized(user_info):
-        raise HTTPException(
-            status_code=403,
-            detail=f"Domain {user_info.get('domain')} is not authorized"
-        )
-    
-    # Check rate limit
-    if not oauth_manager.check_rate_limit(user_info["email"], max_requests=10, window_minutes=1):
-        raise HTTPException(
-            status_code=429,
-            detail="Rate limit exceeded. Please wait before making more requests."
-        )
-    
-    return user_info
+        logger.warning(f"OAuth verification failed: {e}")
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+# Alias for backward compatibility while refactoring
+def verify_oauth_token(request: Request) -> dict:
+    return verify_auth(request)
 
 
 def verify_scheduler_token(request: Request) -> dict:
