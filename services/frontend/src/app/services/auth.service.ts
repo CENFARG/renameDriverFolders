@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
+import { BehaviorSubject, Observable, tap, catchError, of } from 'rxjs';
 import { User } from '../models/job.model';
 import { environment } from '../../environments/environment';
 
@@ -13,8 +14,39 @@ export class AuthService {
     public user$: Observable<User | null> = this.userSubject.asObservable();
     private tokenKey = 'auth_token';
 
-    constructor() {
+    constructor(private http: HttpClient) {
         this.loadUserFromStorage();
+        this.checkIapAuth();
+    }
+
+    /**
+     * Attempts to identify the user via IAP (Identity-Aware Proxy)
+     * Useful when running in Google Cloud.
+     */
+    private checkIapAuth(): void {
+        const url = `${environment.apiUrl}/api/v1/auth/whoami`;
+        console.log('🔍 Checking IAP Auth:', url);
+
+        this.http.get<any>(url).subscribe({
+            next: (response) => {
+                if (response.status === 'success' && response.user) {
+                    console.log('✅ IAP User Detected:', response.user.email);
+                    const user: User = {
+                        email: response.user.email,
+                        name: response.user.name || response.user.email.split('@')[0],
+                        picture: '' // IAP doesn't always provide picture easily
+                    };
+                    this.userSubject.next(user);
+                    localStorage.setItem('user', JSON.stringify(user));
+                    // IAP handle doesn't require us to store a manual token
+                    // but we might want to flag auth_type
+                    localStorage.setItem('auth_type', 'iap');
+                }
+            },
+            error: (err) => {
+                console.log('ℹ️ IAP Auth check failed (expected in local dev):', err.message);
+            }
+        });
     }
 
     initializeGoogleSignIn(): void {

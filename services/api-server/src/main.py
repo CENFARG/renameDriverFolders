@@ -456,6 +456,18 @@ def get_current_user(request: Request) -> dict:
 
 # --- API Endpoints ---
 
+@app.get("/api/v1/auth/whoami")
+async def whoami(request: Request):
+    """
+    Returns the current authenticated user info.
+    Retorna la información del usuario autenticado actual.
+    """
+    user_info = verify_auth(request)
+    return {
+        "status": "success",
+        "user": user_info
+    }
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
@@ -720,6 +732,42 @@ async def list_jobs(request: Request):
         raise HTTPException(
             status_code=500,
             detail=f"Failed to list jobs: {str(e)}"
+        )
+
+
+@app.post("/api/v1/jobs")
+async def create_job(job_data: dict, request: Request):
+    """
+    Create a new job configuration.
+    Crear una nueva configuración de trabajo.
+    
+    Requires OAuth/IAP authentication.
+    """
+    user_info = verify_auth(request)
+    
+    try:
+        job_id = job_data.get("id")
+        if not job_id:
+            raise HTTPException(status_code=400, detail="Job ID is required")
+            
+        # Check if already exists
+        existing = db_manager.find("id", job_id)
+        if existing:
+            raise HTTPException(status_code=409, detail=f"Job '{job_id}' already exists")
+            
+        # Insert into database
+        db_manager.insert(job_data)
+        
+        logger.info(f"Job '{job_id}' created by {user_info['email']}")
+        return {"status": "success", "message": f"Job '{job_id}' created successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating job: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to create job: {str(e)}"
         )
 
 
