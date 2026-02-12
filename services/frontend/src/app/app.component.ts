@@ -131,11 +131,12 @@ export class AppComponent implements OnInit, AfterViewInit {
       description: '',
       active: true,
       trigger_type: 'manual',
+      schedule: '',
       source_folder_id: '',
       target_folder_names: ['Procesados'],
       agent_config: {
         model: { name: 'gemini-1.5-flash', temperature: 0.1, max_tokens: 2048 },
-        instructions: 'Analiza el documento y extrae el tipo, n├║mero y fecha para renombrar.',
+        instructions: 'Analiza el documento y extrae el tipo, número y fecha para renombrar.',
         prompt_template: 'Contenido del documento: {{content}}',
         filename_format: 'DOC_{date}_{id}.pdf'
       }
@@ -149,13 +150,17 @@ export class AppComponent implements OnInit, AfterViewInit {
   }
 
   editJob(job: any): void {
+    if (!job.id) {
+      alert('Error: La configuración seleccionada no tiene un ID válido. No se puede editar.');
+      return;
+    }
     this.isEditing = true;
     this.apiService.getJob(job.id).subscribe({
       next: (res) => {
         this.currentJob = res;
         this.showEditor = true;
       },
-      error: (e) => alert('Error al cargar configuraci├│n: ' + e.message)
+      error: (e) => alert('Error al cargar configuración: ' + e.message)
     });
   }
 
@@ -178,7 +183,11 @@ export class AppComponent implements OnInit, AfterViewInit {
   }
 
   deleteJob(id: string): void {
-    if (confirm('┬┐Est├ís seguro de eliminar esta configuraci├│n?')) {
+    if (!id) {
+      alert('Error: No se pudo identificar el ID de la configuración para eliminar.');
+      return;
+    }
+    if (confirm('¿Estás seguro de eliminar esta configuración?')) {
       this.apiService.deleteJob(id).subscribe({
         next: () => this.loadJobs(),
         error: (e) => alert('Error al eliminar: ' + e.message)
