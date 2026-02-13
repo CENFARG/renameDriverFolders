@@ -29,22 +29,22 @@ export class AuthService {
 
         this.http.get<any>(url).subscribe({
             next: (response) => {
-                if (response.status === 'success' && response.user) {
+                if (response.status === 'success' && response.authenticated && response.user) {
                     console.log('✅ IAP User Detected:', response.user.email);
                     const user: User = {
                         email: response.user.email,
                         name: response.user.name || response.user.email.split('@')[0],
-                        picture: '' // IAP doesn't always provide picture easily
+                        picture: ''
                     };
                     this.userSubject.next(user);
                     localStorage.setItem('user', JSON.stringify(user));
-                    // IAP handle doesn't require us to store a manual token
-                    // but we might want to flag auth_type
                     localStorage.setItem('auth_type', 'iap');
+                } else {
+                    console.log('ℹ️ IAP Auth check: Not authenticated via proxy.');
                 }
             },
             error: (err) => {
-                console.log('ℹ️ IAP Auth check failed (expected in local dev):', err.message);
+                console.log('ℹ️ IAP Auth check failed:', err.message);
             }
         });
     }

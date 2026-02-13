@@ -155,15 +155,16 @@ cors_origins_str = get_secret("cors-allowed-origins") or os.environ.get("CORS_AL
 if cors_origins_str:
     CORS_ORIGINS = [origin.strip() for origin in cors_origins_str.split(",") if origin.strip()]
 else:
-    logger.warning("No CORS origins configured, allowing all (INSECURE)")
-    CORS_ORIGINS = ["*"]
+    logger.warning("CORS not configured. Defaulting to empty list (STRRICT MODE)")
+    # Default to empty list instead of "*" for security
+    CORS_ORIGINS = []
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_headers=["Authorization", "Content-Type", "X-Goog-IAP-JWT-Assertion"],
 )
 logger.info(f"CORS configured for origins: {CORS_ORIGINS}")
 
@@ -198,17 +199,45 @@ class ManualJobRequest(BaseModel):
     
     @validator('folder_id')
     def validate_folder_id(cls, v):
-        # Google Drive folder IDs are alphanumeric + hyphens/underscores
         if not re.match(r'^[a-zA-Z0-9_-]{20,50}$', v):
             raise ValueError('Invalid folder_id format')
         return v
+
+class ModelConfig(BaseModel):
+    name: str = "gemini-1.5-flash"
+    temperature: float = 0.1
+    max_tokens: int = 2048
+
+class AgentConfig(BaseModel):
+    model: ModelConfig
+    instructions: str
+    prompt_template: str
+    filename_format: str
+    output_schema: Optional[dict] = None
+
+class JobConfig(BaseModel):
+    """Strict model for job configuration to prevent mass assignment."""
+    id: str
+    name: str
+    description: Optional[str] = ""
+    active: bool = True
+    trigger_type: str = "manual"
+    schedule: Optional[str] = None
+    source_folder_id: str
+    target_folder_names: list[str] = ["Procesados"]
+    agent_config: AgentConfig
+
+    @validator('id', 'source_folder_id')
+    def validate_ids(cls, v):
+        if v != "DYNAMIC" and not re.match(r'^[a-zA-Z0-9_-]{5,50}$', v):
+            raise ValueError(f'Invalid ID format: {v}')
+        return v
     
-    @validator('job_type')
-    def validate_job_type(cls, v):
-        if v and len(v) > 50:
-            raise ValueError('job_type too long')
-        # Sanitize special characters
-        return re.sub(r'[^\w\s-]', '', v) if v else v
+    @validator('trigger_type')
+    def validate_trigger(cls, v):
+        if v not in ["manual", "scheduled"]:
+            raise ValueError('trigger_type must be manual or scheduled')
+        return v
 
 
 class JobResponse(BaseModel):
@@ -271,20 +300,17 @@ def create_cloud_task(payload: dict) -> str:
 
 def verify_auth(request: Request) -> dict:
     """
-    Verify authentication from request (IAP or OAuth).
-    Verifica autenticación desde request (IAP o OAuth).
+    Unified authentication with IAP priority and legacy OAuth fallback.
+    Enforces domain authorization and rate limiting globally.
     """
+    user_info = None
+    
     # 1. Try IAP (Priority)
     iap_jwt = request.headers.get("X-Goog-IAP-JWT-Assertion")
     if iap_jwt:
         try:
-            # For IAP, we verify the token from Google's IAP issuer
-            # Note: audience validation is recommended but varies by deployment
             from google.auth.transport import requests as auth_requests
             from google.oauth2 import id_token
-            
-            # Verify the JWT
-            # The 'aud' should be validated in production (passed via env)
             expected_audience = os.getenv("IAP_AUDIENCE")
             
             payload = id_token.verify_oauth2_token(
@@ -299,45 +325,49 @@ def verify_auth(request: Request) -> dict:
             user_info = {
                 "email": payload.get("email"),
                 "sub": payload.get("sub"),
+                "name": payload.get("name", ""),
                 "domain": payload.get("email", "").split("@")[-1],
                 "auth_type": "iap"
             }
-            
-            # Simple domain authorization check
-            if not oauth_manager.is_authorized(user_info):
-                logger.warning(f"IAP User {user_info['email']} not authorized for domain")
-                raise HTTPException(status_code=403, detail="Unauthorized")
-                
-            return user_info
-            
         except Exception as e:
             logger.error(f"IAP verification failed: {e}")
-            # Don't fail yet, try OAuth fallback for dev
-            pass
+            if os.environ.get("ENV") == "production":
+                raise HTTPException(status_code=401, detail="Missing or invalid IAP assertion")
 
     # 2. Try legacy OAuth (Fallback/Dev)
-    if not oauth_manager:
-        raise HTTPException(status_code=503, detail="Auth not configured")
-        
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Authentication required")
-        
-    token = auth_header.split("Bearer ")[1]
-    
-    try:
-        user_info = oauth_manager.verify_token(token)
-        user_info["auth_type"] = "oauth"
-        
-        if not oauth_manager.is_authorized(user_info):
-            raise HTTPException(status_code=403, detail="Unauthorized")
+    if not user_info:
+        if not oauth_manager:
+            raise HTTPException(status_code=503, detail="Authentication server unavailable")
             
-        return user_info
-    except Exception as e:
-        logger.warning(f"OAuth verification failed: {e}")
-        raise HTTPException(status_code=401, detail="Invalid token")
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Authentication required (IAP or Bearer)")
+            
+        token = auth_header.split("Bearer ")[1]
+        try:
+            user_info = oauth_manager.verify_token(token)
+            user_info["auth_type"] = "oauth"
+        except Exception as e:
+            logger.warning(f"OAuth verification failed: {e}")
+            raise HTTPException(status_code=401, detail="Invalid session")
 
-# Alias for backward compatibility while refactoring
+    # 3. Enforce Authorization (Domain check)
+    if not oauth_manager.is_authorized(user_info):
+        logger.warning(f"Access denied for domain: {user_info.get('domain')}")
+        raise HTTPException(status_code=403, detail="Unauthorized domain access")
+
+    # 4. Enforce Rate Limiting
+    if not oauth_manager.check_rate_limit(user_info["email"]):
+        logger.warning(f"Rate limit exceeded: {user_info['email']}")
+        raise HTTPException(status_code=429, detail="Too many requests. Please wait 1 minute.")
+        
+    return user_info
+
+def get_current_user(request: Request) -> dict:
+    """Dependency for protected endpoints."""
+    return verify_auth(request)
+
+# Alias for backward compatibility
 def verify_oauth_token(request: Request) -> dict:
     return verify_auth(request)
 
@@ -461,12 +491,21 @@ async def whoami(request: Request):
     """
     Returns the current authenticated user info.
     Retorna la información del usuario autenticado actual.
+    Does not raise 401 if unauthenticated to avoid console noise.
     """
-    user_info = verify_auth(request)
-    return {
-        "status": "success",
-        "user": user_info
-    }
+    try:
+        user_info = verify_auth(request)
+        return {
+            "status": "success",
+            "authenticated": True,
+            "user": user_info
+        }
+    except HTTPException:
+        return {
+            "status": "success",
+            "authenticated": False,
+            "user": None
+        }
 
 @app.get("/health")
 async def health_check():
@@ -475,37 +514,32 @@ async def health_check():
         "status": "healthy",
         "service": "api-server",
         "version": "2.0.0",
-        "oauth_enabled": oauth_manager is not None,
-        "tasks_enabled": tasks_client is not None
+        "iap_enabled": "X-Goog-IAP-JWT-Assertion" in os.environ,
+        "auth_enabled": oauth_manager is not None
     }
+
+# Global Error Handler for Security (Anti-Leakage)
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"UNHANDLED EXCEPTION: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "status": "error",
+            "message": "An unexpected error occurred. Please contact the administrator."
+        }
+    )
 
 
 @app.post("/api/v1/jobs/manual", response_model=JobResponse)
 async def submit_manual_job(
     job_request: ManualJobRequest,
-    request: Request,
-    user: dict = Depends(get_current_user)  # Enforces OAuth authentication
+    user: dict = Depends(get_current_user)
 ):
     """
-    Submit a manual job for processing.
-    Enviar un trabajo manual para procesamiento.
-    
-    Requires OAuth authentication.
-    User must be from authorized domain.
-    
-    Headers:
-        Authorization: Bearer <google_oauth_token>
-    
-    Body:
-        {
-            "folder_id": "1AbCdEf...",
-            "job_type": "invoice" | "report" | "generic"
-        }
+    Submit a manual job for processing with unified authentication.
     """
-    logger.info("Manual job submission received")
-    
-    # Verify OAuth token
-    user_info = verify_oauth_token(request)
+    logger.info(f"Manual job submission from {user['email']}")
     
     # Find appropriate job config
     # For manual jobs, we use a generic template or specific job_type
@@ -686,15 +720,10 @@ async def process_scheduled_jobs(request: Request):
 
 
 @app.get("/api/v1/jobs")
-async def list_jobs(request: Request):
+async def list_jobs(user: dict = Depends(get_current_user)):
     """
-    List all available jobs.
-    Listar todos los trabajos disponibles.
-    
-    Requires OAuth authentication.
+    List all available job configurations.
     """
-    user_info = verify_oauth_token(request)
-    
     try:
         all_jobs = db_manager.find_all()
         
@@ -736,166 +765,99 @@ async def list_jobs(request: Request):
 
 
 @app.post("/api/v1/jobs")
-async def create_job(job_data: dict, request: Request):
+async def create_job(job_config: JobConfig, user: dict = Depends(get_current_user)):
     """
-    Create a new job configuration.
-    Crear una nueva configuración de trabajo.
-    
-    Requires OAuth/IAP authentication.
+    Create a new job configuration with strict validation.
     """
-    user_info = verify_auth(request)
-    
     try:
-        job_id = job_data.get("id")
-        if not job_id:
-            raise HTTPException(status_code=400, detail="Job ID is required")
-            
         # Check if already exists
-        existing = db_manager.find("id", job_id)
+        existing = db_manager.find("id", job_config.id)
         if existing:
-            raise HTTPException(status_code=409, detail=f"Job '{job_id}' already exists")
+            raise HTTPException(status_code=409, detail=f"ID '{job_config.id}' already exists")
             
-        # Insert into database
-        db_manager.insert(job_data)
+        # Insert into database using dict representation of validated model
+        db_manager.insert(job_config.dict())
         
-        logger.info(f"Job '{job_id}' created by {user_info['email']}")
-        return {"status": "success", "message": f"Job '{job_id}' created successfully"}
+        logger.info(f"Job '{job_config.id}' created by {user['email']}")
+        return {"status": "success", "message": f"Job '{job_config.id}' created"}
         
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error creating job: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to create job: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail="Failed to persist configuration")
 
 
 @app.get("/api/v1/jobs/{job_id}")
-async def get_job(job_id: str, request: Request):
+async def get_job(job_id: str, user: dict = Depends(get_current_user)):
     """
     Get a single job configuration by ID.
     Obtener una configuración de trabajo individual por ID.
-    
-    Requires OAuth authentication.
     """
-    user_info = verify_oauth_token(request)
-    
     try:
         jobs = db_manager.find("id", job_id)
-        
-        if not jobs or len(jobs) == 0:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Job '{job_id}' not found"
-            )
-        
-        logger.info(f"Job '{job_id}' retrieved by {user_info['email']}")
-        
+        if not jobs:
+            raise HTTPException(status_code=404, detail="Configuration not found")
         return jobs[0]
-        
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error retrieving job {job_id}: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to retrieve job: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail="Database retrieval failed")
 
 
 @app.put("/api/v1/jobs/{job_id}")
-async def update_job(job_id: str, job_data: dict, request: Request):
+async def update_job(job_id: str, job_config: JobConfig, user: dict = Depends(get_current_user)):
     """
-    Update an existing job configuration.
-    Actualizar una configuración de trabajo existente.
-    
-    Requires OAuth authentication.
+    Update configuration using JobConfig model for hardening.
     """
-    user_info = verify_oauth_token(request)
-    
     try:
         existing = db_manager.find("id", job_id)
+        if not existing:
+            raise HTTPException(status_code=404, detail="Configuration not found")
         
-        if not existing or len(existing) == 0:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Job '{job_id}' not found"
-            )
+        # Enforce ID consistency
+        if job_config.id != job_id:
+            raise HTTPException(status_code=400, detail="Path ID and body ID mismatch")
         
-        # Update job in database
-        job_data["id"] = job_id  # Ensure ID doesn't change
-        db_manager.update("id", job_id, job_data)
+        db_manager.update("id", job_id, job_config.dict())
+        logger.info(f"Job '{job_id}' updated by {user['email']}")
         
-        logger.info(f"Job '{job_id}' updated by {user_info['email']}")
-        
-        return {
-            "status": "success",
-            "message": f"Job '{job_id}' updated successfully",
-            "job": job_data
-        }
+        return {"status": "success", "message": f"Job '{job_id}' updated"}
         
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error updating job {job_id}: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to update job: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail="Update failed")
 
 
 @app.delete("/api/v1/jobs/{job_id}")
-async def delete_job(job_id: str, request: Request):
+async def delete_job(job_id: str, user: dict = Depends(get_current_user)):
     """
     Delete a job configuration.
-    Eliminar una configuración de trabajo.
-    
-    Requires OAuth authentication.
     """
-    user_info = verify_oauth_token(request)
-    
     try:
         existing = db_manager.find("id", job_id)
-        
-        if not existing or len(existing) == 0:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Job '{job_id}' not found"
-            )
-        
-        # Delete job
+        if not existing:
+            raise HTTPException(status_code=404, detail="Configuration not found")
+            
         db_manager.delete("id", job_id)
-        
-        logger.info(f"Job '{job_id}' deleted by {user_info['email']}")
-        
-        return {
-            "status": "success",
-            "message": f"Job '{job_id}' deleted successfully"
-        }
+        logger.info(f"Job '{job_id}' deleted by {user['email']}")
+        return {"status": "success", "message": f"Job '{job_id}' deleted"}
         
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error deleting job {job_id}: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to delete job: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail="Deletion failed")
 
 
 @app.get("/api/v1/audit-logs")
-async def get_audit_logs(request: Request, limit: int = 100):
+async def get_audit_logs(limit: int = 100, user: dict = Depends(get_current_user)):
     """
     Get audit logs for system activity.
-    Obtener logs de auditoría de actividad del sistema.
-    
-    Requires OAuth authentication.
-    
-    Query Parameters:
-        limit: Maximum number of logs to return (default: 100, max: 1000)
     """
-    user_info = verify_oauth_token(request)
     
     # Validate limit
     if limit > 1000:
