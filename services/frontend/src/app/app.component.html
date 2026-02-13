@@ -217,9 +217,41 @@
                 <div *ngIf="showEditor"
                     class="bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden animate-slide-up max-w-2xl mx-auto">
                     <div class="p-6 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
-                        <h2 class="text-xl font-bold">{{isEditing ? 'Editar' : 'Nueva'}} Configuración</h2>
+                        <div>
+                            <h2 class="text-xl font-bold">{{isEditing ? 'Editar' : 'Nueva'}} Configuración</h2>
+                            <button (click)="showConfigTutorial = !showConfigTutorial"
+                                class="text-xs text-blue-600 hover:underline flex items-center gap-1 mt-1">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24"
+                                    stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                ¿Cómo configurar este Job?
+                            </button>
+                        </div>
                         <button (click)="showEditor = false"
                             class="text-slate-400 hover:text-slate-600 text-2xl">&times;</button>
+                    </div>
+
+                    <!-- Tutorial Colapsable -->
+                    <div *ngIf="showConfigTutorial" class="p-6 bg-blue-50 border-b border-blue-100 animate-fade-in">
+                        <h3 class="font-bold text-blue-800 text-sm mb-2 flex items-center gap-2">
+                            🚀 Guía de Configuración Express
+                        </h3>
+                        <div class="grid grid-cols-2 gap-4 text-xs text-blue-700 leading-relaxed">
+                            <div>
+                                <p class="mb-2"><strong>1. ID y Estructura:</strong> El ID es el nombre técnico (sin
+                                    espacios). La 'Carpeta Origen' es el ID de Drive que la IA vigilará.</p>
+                                <p><strong>2. Trigger:</strong> 'Manual' para ejecutar a pedido. 'Scheduled' para
+                                    automatizar por fecha/hora.</p>
+                            </div>
+                            <div>
+                                <p class="mb-2"><strong>3. Motor IA:</strong> Elige modelos 2.5 para velocidad o 3.0
+                                    para alta complejidad estructural.</p>
+                                <p><strong>4. Instrucciones:</strong> Dile a la IA exactamente cómo renombrar. Ej:
+                                    "Extrae el CUIT y ponlo al principio".</p>
+                            </div>
+                        </div>
                     </div>
                     <div class="p-8 space-y-6 overflow-y-auto max-h-[70vh]">
                         <div class="grid grid-cols-2 gap-6">
@@ -266,51 +298,95 @@
                                 </div>
                             </div>
                             <div class="col-span-2" *ngIf="currentJob.trigger_type === 'scheduled'">
-                                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Programación (CRON)
-                                    *</label>
-                                <input [(ngModel)]="currentJob.schedule" type="text"
-                                    placeholder="ej: 0 9 * * 1-5 (Lunes a Viernes a las 09:00)"
-                                    class="w-full border rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 font-mono">
-                                <p class="text-[10px] text-slate-400 mt-1 uppercase font-bold tracking-tight">Formato:
-                                    Minuto Hora Día Mes DíaSemana (UTC)</p>
+                                <div class="flex justify-between items-baseline mb-1">
+                                    <label class="block text-xs font-bold text-slate-500 uppercase">Programación
+                                        (CRON)</label>
+                                    <button type="button" (click)="showScheduleHelp = !showScheduleHelp"
+                                        class="text-[10px] text-blue-500 hover:underline">¿Cómo funciona?</button>
+                                </div>
+
+                                <div *ngIf="showScheduleHelp"
+                                    class="mb-4 p-3 bg-blue-50 rounded-lg text-xs text-blue-800 animate-fade-in border border-blue-100">
+                                    <strong>Guía rápida de programación:</strong>
+                                    <ul class="list-disc ml-4 mt-1 space-y-1">
+                                        <li>Usa el selector de fecha para programar una ejecución única.</li>
+                                        <li>O escribe un CRON manual: <code>min hor día mes díaSem</code></li>
+                                        <li>Ej: <code>0 9 * * 1-5</code> (Lun a Vie a las 09:00).</li>
+                                    </ul>
+                                </div>
+
+                                <div class="flex gap-4">
+                                    <div class="flex-1">
+                                        <input [(ngModel)]="currentJob.schedule" type="text"
+                                            placeholder="ej: 0 9 * * 1-5"
+                                            class="w-full border rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm">
+                                    </div>
+                                    <div class="flex-1">
+                                        <input type="datetime-local" [(ngModel)]="scheduledDate"
+                                            (change)="updateCronFromDate()"
+                                            class="w-full border rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                                    </div>
+                                </div>
+                                <p class="text-[9px] text-slate-400 mt-1 uppercase font-bold">El selector de fecha
+                                    actualiza el CRON automáticamente.</p>
                             </div>
                         </div>
 
                         <div class="border-t pt-6">
-                            <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
-                                    stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                                </svg>
-                                Configuración de IA (Grama Brain)
+                            <h3 class="font-bold text-slate-800 mb-4 flex items-center justify-between">
+                                <span class="flex items-center gap-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none"
+                                        viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                    </svg>
+                                    IA Engine (Grama Brain)
+                                </span>
+                                <button type="button" (click)="showModelHelp = !showModelHelp"
+                                    class="text-[10px] text-blue-500 hover:underline">Ver Modelos</button>
                             </h3>
+
+                            <div *ngIf="showModelHelp"
+                                class="mb-4 p-3 bg-slate-50 rounded-lg text-xs text-slate-600 animate-fade-in border border-slate-200">
+                                <strong>Manual de Modelos (Series 2.5 & 3.0):</strong>
+                                <ul class="mt-1 space-y-1">
+                                    <li>• <strong>2.5 Flash:</strong> Super rápido. Ideal para documentos estandarizados
+                                        (Facturas, DNI).</li>
+                                    <li>• <strong>2.5 Pro:</strong> Razonamiento avanzado. Para contratos y balances.
+                                    </li>
+                                    <li>• <strong>3.0 Previews:</strong> Lo último en inteligencia. Úsalos para
+                                        documentos manuscritos o muy complejos.</li>
+                                </ul>
+                            </div>
+
                             <div class="space-y-4">
                                 <div class="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label
-                                            class="block text-xs font-bold text-slate-500 uppercase mb-1">Modelo</label>
+                                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Modelo
+                                            AI</label>
                                         <select [(ngModel)]="currentJob.agent_config.model.name"
-                                            class="w-full border rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500">
-                                            <option value="gemini-1.5-flash">Gemini 1.5 Flash (Rápido)</option>
-                                            <option value="gemini-1.5-pro">Gemini 1.5 Pro (Potente)</option>
-                                            <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash (Next Gen)</option>
+                                            class="w-full border rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                                            <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                                            <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                                            <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</option>
+                                            <option value="gemini-3-pro-preview">Gemini 3 Pro Preview</option>
+                                            <option value="gemini-3-flash-preview">Gemini 3 Flash Preview</option>
                                         </select>
                                     </div>
                                     <div>
                                         <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Formato
-                                            Nombre Salida</label>
+                                            Nombre</label>
                                         <input [(ngModel)]="currentJob.agent_config.filename_format" type="text"
-                                            placeholder="ej: FACTURA_{date}_{id}.pdf"
-                                            class="w-full border rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500">
+                                            placeholder="ej: {date}_{issuer}.pdf"
+                                            class="w-full border rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 text-sm">
                                     </div>
                                 </div>
                                 <div>
                                     <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Instrucciones
-                                        del Agente (System Prompt)</label>
+                                        Estratégicas</label>
                                     <textarea [(ngModel)]="currentJob.agent_config.instructions"
-                                        class="w-full border rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
-                                        rows="4" placeholder="Eres un asistente legal..."></textarea>
+                                        class="w-full border rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm shadow-inner"
+                                        rows="4"></textarea>
                                 </div>
                             </div>
                         </div>
@@ -320,7 +396,7 @@
                             class="px-6 py-2 text-slate-600 font-bold hover:bg-slate-200 rounded-lg transition-all">Cancelar</button>
                         <button (click)="saveJob()"
                             class="px-8 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 shadow-lg active:scale-95 transition-all">
-                            Guardar configuración
+                            Sincronizar con Google Console
                         </button>
                     </div>
                 </div>

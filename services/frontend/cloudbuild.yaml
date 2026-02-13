@@ -7,6 +7,20 @@ steps:
   # Push the container image to Container Registry
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push', 'gcr.io/cloud-functions-474716/renombradorarchivosgdrive-frontend-v2:latest']
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'renombradorarchivosgdrive-frontend-v2'
+      - '--image'
+      - 'gcr.io/cloud-functions-474716/renombradorarchivosgdrive-frontend-v2:latest'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
   
 images:
   - 'gcr.io/cloud-functions-474716/renombradorarchivosgdrive-frontend-v2:latest'

@@ -135,12 +135,31 @@ export class AppComponent implements OnInit, AfterViewInit {
       source_folder_id: '',
       target_folder_names: ['Procesados'],
       agent_config: {
-        model: { name: 'gemini-1.5-flash', temperature: 0.1, max_tokens: 2048 },
+        model: { name: 'gemini-2.5-flash', temperature: 0.1, max_tokens: 4096 },
         instructions: 'Analiza el documento y extrae el tipo, número y fecha para renombrar.',
         prompt_template: 'Contenido del documento: {{content}}',
         filename_format: 'DOC_{date}_{id}.pdf'
       }
     };
+  }
+
+  // --- UI Helpers ---
+  scheduledDate: string = '';
+  showScheduleHelp = false;
+  showModelHelp = false;
+  showConfigTutorial = false;
+
+  updateCronFromDate(): void {
+    if (!this.scheduledDate) return;
+    const date = new Date(this.scheduledDate);
+    // Google Cloud Scheduler expects: minute hour day month dayOfWeek
+    const min = date.getMinutes();
+    const hour = date.getHours();
+    const day = date.getDate();
+    const month = date.getMonth() + 1; // 1-12
+    const cron = `${min} ${hour} ${day} ${month} *`;
+    this.currentJob.schedule = cron;
+    console.log('🔄 CRON Generated:', cron);
   }
 
   newJob(): void {

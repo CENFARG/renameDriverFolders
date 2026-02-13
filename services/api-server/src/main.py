@@ -204,9 +204,10 @@ class ManualJobRequest(BaseModel):
         return v
 
 class ModelConfig(BaseModel):
-    name: str = "gemini-1.5-flash"
+    # Support modern Gemini models 2.5, 3.0 series
+    name: str = "gemini-2.5-flash"
     temperature: float = 0.1
-    max_tokens: int = 2048
+    max_tokens: int = 4096
 
 class AgentConfig(BaseModel):
     model: ModelConfig
@@ -886,7 +887,7 @@ async def get_audit_logs(limit: int = 100, user: dict = Depends(get_current_user
                 "details": f"Folder: {exec.get('folder_id')} | Type: {exec.get('job_type')}"
             })
         
-        logger.info(f"Audit logs requested by {user_info['email']}, limit={limit}, returned {len(audit_logs)} logs")
+        logger.info(f"Audit logs requested by {user['email']}, limit={limit}, returned {len(audit_logs)} logs")
         
         return {
             "status": "success",

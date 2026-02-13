@@ -9,6 +9,19 @@ steps:
       - '.'
     timeout: 1200s
 
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'renombradorarchivosgdrive-api-server-v2'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/renombradorarchivosgdrive-api-server-v2:latest'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+
 images:
   - 'gcr.io/$PROJECT_ID/renombradorarchivosgdrive-api-server-v2:latest'
 
