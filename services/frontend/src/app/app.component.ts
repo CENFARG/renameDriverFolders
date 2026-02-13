@@ -6,6 +6,9 @@ import { AuthService } from './services/auth.service';
 import { ApiService } from './services/api.service';
 import { User, Job } from './models/job.model';
 
+declare const google: any;
+declare const gapi: any;
+
 @Component({
   selector: 'app-root',
   standalone: true,
@@ -32,6 +35,9 @@ export class AppComponent implements OnInit, AfterViewInit {
     'gonzalo.f.recalde@gmail.com'
   ];
 
+  private accessToken: string | null = null;
+  private pickerApiLoaded = false;
+
   constructor(
     private authService: AuthService,
     private apiService: ApiService,
@@ -42,19 +48,76 @@ export class AppComponent implements OnInit, AfterViewInit {
 
   ngOnInit(): void {
     this.authService.initializeGoogleSignIn();
+    this.loadPickerApi();
 
     this.user$.subscribe(user => {
-      console.log('­ƒæñ User state changed:', user ? user.email : 'Logged out');
+      console.log('👤 User state changed:', user ? user.email : 'Logged out');
       if (user) {
         this.isAdmin = this.ADMIN_EMAILS.includes(user.email);
         this.loadJobs();
         if (this.isAdmin) this.loadAuditLogs();
+        // Request token for picker
+        this.requestAccessToken();
       } else {
         this.isAdmin = false;
         this.view = 'dashboard';
         setTimeout(() => this.initializeLoginButton(), 100);
       }
     });
+  }
+
+  loadPickerApi(): void {
+    const script = document.createElement('script');
+    script.src = 'https://apis.google.com/js/api.js';
+    script.onload = () => {
+      gapi.load('picker', () => {
+        this.pickerApiLoaded = true;
+        console.log('✅ Google Picker API loaded');
+      });
+    };
+    document.body.appendChild(script);
+  }
+
+  requestAccessToken(): void {
+    const tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: '702567224563-74i4orff38l8afk39j4hsc411mm3d1ma.apps.googleusercontent.com',
+      scope: 'https://www.googleapis.com/auth/drive.readonly',
+      callback: (response: any) => {
+        if (response.access_token) {
+          this.accessToken = response.access_token;
+          console.log('✅ Access Token acquired for Picker');
+        }
+      },
+    });
+    tokenClient.requestAccessToken({ prompt: '' });
+  }
+
+  openPicker(target: 'dashboard' | 'config'): void {
+    if (!this.pickerApiLoaded || !this.accessToken) {
+      this.requestAccessToken();
+      return;
+    }
+
+    const view = new google.picker.DocsView(google.picker.ViewId.FOLDERS)
+      .setSelectFolderEnabled(true)
+      .setMimeTypes('application/vnd.google-apps.folder');
+
+    const picker = new google.picker.PickerBuilder()
+      .addView(view)
+      .setOAuthToken(this.accessToken)
+      .setCallback((data: any) => {
+        if (data.action === google.picker.Action.PICKED) {
+          const doc = data.docs[0];
+          if (target === 'dashboard') {
+            this.folderId = doc.id;
+          } else {
+            this.currentJob.source_folder_id = doc.id;
+          }
+          this.cdr.detectChanges();
+        }
+      })
+      .build();
+    picker.setVisible(true);
   }
 
   ngAfterViewInit(): void {

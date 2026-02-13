@@ -70,6 +70,23 @@ else:
     )
     logger.info("DatabaseManager initialized in JSON mode")
 
+# Job Executions Manager (for audit logs)
+if use_supabase:
+    executions_manager = DatabaseManager(use_supabase=True, table_name="job_executions")
+    logger.info("Executions DatabaseManager initialized in Supabase mode")
+elif use_gcs:
+    executions_manager = DatabaseManager(
+        use_gcs=True,
+        table_name="job_executions"
+    )
+    logger.info("Executions DatabaseManager initialized in GCS mode")
+else:
+    executions_manager = DatabaseManager(
+        file_manager=file_manager,
+        db_path="data/job_executions.json"
+    )
+    logger.info("Executions DatabaseManager initialized in JSON mode")
+
 # Agent Factory
 agent_factory = AgentFactory(
     database_manager=db_manager,
@@ -114,6 +131,7 @@ class TaskPayload(BaseModel):
     folder_id: Optional[str] = None
     user_token: Optional[str] = None
     trigger_type: str = "scheduled"  # "scheduled" or "manual"
+    execution_id: Optional[str] = None
 
 
 class JobRunRequest(BaseModel):
@@ -604,8 +622,28 @@ async def run_task(request: Request):
         if not job_config:
             raise HTTPException(status_code=404, detail=f"Job '{task.job_id}' not found or inactive")
         
-        result = process_job(job_config, task.folder_id, credentials)
-        return result
+        if task.execution_id:
+            try:
+                executions_manager.update("id", task.execution_id, {"status": "processing"})
+                logger.info(f"Execution {task.execution_id} status updated: processing")
+            except Exception as e:
+                logger.warning(f"Failed to update execution status (non-fatal): {e}")
+
+        try:
+            result = process_job(job_config, task.folder_id, credentials)
+            
+            if task.execution_id:
+                executions_manager.update("id", task.execution_id, {
+                    "status": "completed" if result.get("status") == "success" else "failed",
+                    "details": f"Processed {result.get('stats', {}).get('renamed', 0)} files. Folder: {task.folder_id}"
+                })
+            
+            return result
+        except Exception as e:
+            logger.error(f"Error in process_job: {e}")
+            if task.execution_id:
+                executions_manager.update("id", task.execution_id, {"status": "failed", "details": str(e)})
+            raise HTTPException(status_code=500, detail=str(e))
     
     else:
         # Run all active scheduled jobs

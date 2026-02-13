@@ -116,6 +116,83 @@ else:
     )
     logger.info("Executions DatabaseManager initialized in JSON mode")
 
+# --- Seeding Diego Cutignola's Study Algorithms ---
+def seed_default_algorithms():
+    """Seeds professional study algorithms if they don't exist."""
+    diego_algorithms = [
+        {
+            "id": "facturas-rg830",
+            "name": "Facturas RG 830 (Detección Auto)",
+            "description": "Estilo Diego Cutignola: [FECHA]_[TIPO]_[EMISOR]_[DETALLE]",
+            "active": True,
+            "trigger_type": "manual",
+            "source_folder_id": "DYNAMIC",
+            "target_folder_names": ["Procesados"],
+            "agent_config": {
+                "model": {"name": "gemini-2.5-flash", "temperature": 0.1, "max_tokens": 4096},
+                "instructions": "Analiza el documento. Si es factura, usa TIPO=FACTURA. Emisor: Empresa externa. Detalle: Concepto breve.",
+                "prompt_template": "Analiza: {content}. Formato: YYYY-MM-DD_FACTURA_EMISOR_DETALLE. Devuelve solo el nombre.",
+                "filename_format": "{date}_FACTURA_{issuer}_{detail}"
+            }
+        },
+        {
+            "id": "sueldos-digitales",
+            "name": "Sueldos y Liquidaciones RRHH",
+            "description": "Estilo Diego Cutignola: AAAA-MM_SUELDO_EMPRESA_DETALLE",
+            "active": True,
+            "trigger_type": "manual",
+            "source_folder_id": "DYNAMIC",
+            "target_folder_names": ["Recibos_Procesados"],
+            "agent_config": {
+                "model": {"name": "gemini-2.5-pro", "temperature": 0.1, "max_tokens": 4096},
+                "instructions": "Analiza recibos de sueldo. Usa TIPO=SUELDO. Emisor: Nombre de la empresa. Detalle: Apellido empleado o concepto.",
+                "prompt_template": "Analiza: {content}. Formato: YYYY-MM_SUELDO_EMPRESA_DETALLE.",
+                "filename_format": "{date}_SUELDO_{issuer}_{detail}"
+            }
+        },
+        {
+            "id": "resumenes-bancarios",
+            "name": "Resúmenes y Tenencias",
+            "description": "Estilo Diego Cutignola: AAAA-MM_RESUMEN_BANCO_DETALLE",
+            "active": True,
+            "trigger_type": "manual",
+            "source_folder_id": "DYNAMIC",
+            "target_folder_names": ["Extractos"],
+            "agent_config": {
+                "model": {"name": "gemini-2.5-flash", "temperature": 0.1, "max_tokens": 4096},
+                "instructions": "Analiza resúmenes. Usa TIPO=RESUMEN. Emisor: Banco o Broker. Detalle: Tipo de cuenta.",
+                "prompt_template": "Analiza: {content}. Formato: YYYY-MM_RESUMEN_BANCO_DETALLE.",
+                "filename_format": "{date}_RESUMEN_{issuer}_{detail}"
+            }
+        },
+        {
+            "id": "estados-contables",
+            "name": "Estados Contables y Balances",
+            "description": "Estilo Diego Cutignola: AAAA_CONTABLE_CLIENTE_DETALLE",
+            "active": True,
+            "trigger_type": "manual",
+            "source_folder_id": "DYNAMIC",
+            "target_folder_names": ["Balances_Oficiales"],
+            "agent_config": {
+                "model": {"name": "gemini-3-pro-preview", "temperature": 0.1, "max_tokens": 4096},
+                "instructions": "Analiza Balances. Usa TIPO=CONTABLE. Emisor: Nombre del Cliente. Detalle: Estados Contables.",
+                "prompt_template": "Analiza: {content}. Formato: YYYY_CONTABLE_CLIENTE_Estados_Contables.",
+                "filename_format": "{date}_CONTABLE_{issuer}_Estados_Contables"
+            }
+        }
+    ]
+    
+    for algo in diego_algorithms:
+        try:
+            if not db_manager.find("id", algo["id"]):
+                db_manager.insert(algo)
+                logger.info(f"Seeded algorithm: {algo['id']}")
+        except Exception as e:
+            logger.error(f"Failed to seed {algo['id']}: {e}")
+
+# Run seeding
+seed_default_algorithms()
+
 # OAuth Security Manager
 oauth_manager = None
 try:
@@ -365,124 +442,8 @@ def verify_auth(request: Request) -> dict:
     return user_info
 
 def get_current_user(request: Request) -> dict:
-    """Dependency for protected endpoints."""
+    """Unified authentication dependency for protected endpoints."""
     return verify_auth(request)
-
-# Alias for backward compatibility
-def verify_oauth_token(request: Request) -> dict:
-    return verify_auth(request)
-
-
-def verify_scheduler_token(request: Request) -> dict:
-    """
-    Verify OIDC token from Cloud Scheduler.
-    Verifica token OIDC desde Cloud Scheduler.
-    
-    Returns:
-        Token info dict.
-    """
-    auth_header = request.headers.get("Authorization")
-    
-    if not auth_header:
-        raise HTTPException(status_code=401, detail="Missing Authorization header")
-    
-    try:
-        # Extract token
-        token = auth_header.split("Bearer ")[1]
-        
-        # Verify OIDC token
-        # Expected audience is this service URL (FastAPI: use base_url instead of url_root)
-        audience = str(request.base_url).rstrip("/")
-        
-        idinfo = id_token.verify_oauth2_token(
-            token,
-            google_requests.Request(),
-            audience
-        )
-        
-        # Verify it's from a Google service account
-        email = idinfo.get("email", "")
-        if not email.endswith("gserviceaccount.com"):
-            raise HTTPException(
-                status_code=403,
-                detail="Invalid service account"
-            )
-        
-        logger.info(f"Scheduler request authenticated from {email}")
-        return idinfo
-        
-    except Exception as e:
-        logger.error(f"OIDC verification failed: {e}")
-        raise HTTPException(
-            status_code=403,
-            detail=f"OIDC verification failed: {str(e)}"
-        )
-
-
-def get_current_user(request: Request) -> dict:
-    """
-    Authentication dependency for protected endpoints.
-    Verifies OAuth token and enforces rate limiting.
-    
-    Returns:
-        User info dict if authenticated.
-        
-    Raises:
-        HTTPException: 401 if not authenticated, 403 if unauthorized, 429 if rate limited.
-    """
-    if not oauth_manager:
-        raise HTTPException(
-            status_code=503,
-            detail="OAuth not configured"
-        )
-    
-    # Extract token from Authorization header
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        logger.warning(f"Missing or invalid Authorization header from {request.client.host}")
-        raise HTTPException(
-            status_code=401,
-            detail="Missing or invalid Authorization header"
-        )
-    
-    token = auth_header.split("Bearer ")[1]
-    
-    # Verify token directly
-    try:
-        user = oauth_manager.verify_token(token)
-    except Exception as e:
-        logger.warning(f"Token verification failed from {request.client.host}: {e}")
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid or expired token"
-        )
-    
-    if not user:
-        logger.warning(f"Authentication failed from {request.client.host}")
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid or missing token"
-        )
-    
-    # Check authorization (domain whitelist)
-    if not oauth_manager.is_authorized(user):
-        logger.warning(f"Unauthorized access attempt: {user['email']} (domain: {user.get('domain')})")
-        raise HTTPException(
-            status_code=403,
-            detail=f"Unauthorized domain: {user.get('domain')}"
-        )
-    
-    # Check rate limit
-    if not oauth_manager.check_rate_limit(user["email"]):
-        logger.warning(f"Rate limit exceeded: {user['email']}")
-        raise HTTPException(
-            status_code=429,
-            detail="Rate limit exceeded. Max 10 requests per minute."
-        )
-    
-    # Log successful authentication
-    logger.info(f"Authenticated user: {user['email']} from {request.client.host}")
-    return user
 
 
 # --- API Endpoints ---
@@ -495,11 +456,10 @@ async def whoami(request: Request):
     Does not raise 401 if unauthenticated to avoid console noise.
     """
     try:
-        user_info = verify_auth(request)
+        user = verify_auth(request)
         return {
             "status": "success",
-            "authenticated": True,
-            "user": user_info
+            "user": user
         }
     except HTTPException:
         return {
@@ -534,7 +494,8 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 @app.post("/api/v1/jobs/manual", response_model=JobResponse)
 async def submit_manual_job(
-    job_request: ManualJobRequest,
+    job_id: str, 
+    job_request: ManualJobRequest, # Assuming JobSubmissionRequest is a typo and ManualJobRequest is intended
     user: dict = Depends(get_current_user)
 ):
     """
@@ -589,7 +550,8 @@ async def submit_manual_job(
         "job_id": job_id,
         "folder_id": job_request.folder_id,
         "trigger_type": "manual",
-        "submitted_by": user_info["email"]
+        "submitted_by": user["email"],
+        "execution_id": execution_log["id"]
     }
     
     # Log execution for audit trail (before task creation)
@@ -598,8 +560,8 @@ async def submit_manual_job(
     
     execution_log = {
         "id": f"exec-{int(time.time() * 1000)}",  # timestamp-based ID
-        "user_email": user_info["email"],
-        "user_name": user_info.get("name", "Unknown"),
+        "user_email": user["email"],
+        "user_name": user.get("name", "Unknown"),
         "folder_id": job_request.folder_id,
         "job_type": job_request.job_type,
         "job_config_id": job_id,
@@ -625,7 +587,7 @@ async def submit_manual_job(
             logger.error(f"Failed to update execution with task_id (non-fatal): {e}")
         
         logger.info(
-            f"Manual job accepted. User: {user_info['email']}, "
+            f"Manual job accepted. User: {user['email']}, "
             f"Folder: {job_request.folder_id}, Task: {task_id}"
         )
         
