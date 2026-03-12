@@ -82,6 +82,19 @@ use_supabase = os.environ.get("USE_SUPABASE", "false").lower() == "true"
 
 use_gcs = os.environ.get("USE_GCS", "false").lower() == "true" or "GCS_BUCKET_NAME" in os.environ
 
+# Load Supabase credentials from Secret Manager if using Supabase
+if use_supabase:
+    supabase_url = get_secret("supabase-url")
+    supabase_key = get_secret("supabase-key")
+
+    if supabase_url and supabase_key:
+        os.environ["SUPABASE_URL"] = supabase_url
+        os.environ["SUPABASE_KEY"] = supabase_key
+        logger.info("Supabase credentials loaded from Secret Manager")
+    else:
+        logger.warning("Supabase credentials not found in Secret Manager, falling back to JSON mode")
+        use_supabase = False
+
 # Job Configurations Manager
 if use_supabase:
     db_manager = DatabaseManager(use_supabase=True, table_name="jobs")

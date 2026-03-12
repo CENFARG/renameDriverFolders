@@ -24,6 +24,7 @@ from pydantic import BaseModel
 import google.auth
 from google.oauth2 import service_account
 from google.cloud import storage
+from google.cloud import secretmanager
 from googleapiclient.discovery import build
 
 # Core modules
@@ -34,6 +35,35 @@ from core_renombrador.file_manager import FileManager
 from core_renombrador.agent_factory import AgentFactory, create_document_agent
 from core_renombrador.drive_handler import DriveHandler
 from core_renombrador.content_extractor import ContentExtractor
+
+def get_secret(secret_id: str) -> str:
+    """
+    Get secret from Secret Manager (production) or .env (local)
+
+    Priority:
+    1. Environment variable (for local dev)
+    2. Secret Manager (for production)
+    """
+    # Check if running locally (has .env file)
+    env_var = secret_id.upper().replace("-", "_")
+    local_value = os.environ.get(env_var)
+
+    if local_value:
+        logger.info(f"Using local config for {secret_id}")
+        return local_value.strip()
+
+    # Production: use Secret Manager
+    try:
+        client = secretmanager.SecretManagerServiceClient()
+        project_id = os.environ.get("GCP_PROJECT_ID", "cloud-functions-474716")
+        name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
+        response = client.access_secret_version(request={"name": name})
+        logger.info(f"Using Secret Manager for {secret_id}")
+        return response.payload.data.decode("UTF-8").strip()
+    except Exception as e:
+        logger.warning(f"Failed to get secret {secret_id}: {e}")
+        return ""
+
 
 # --- Initialization ---
 config_manager = ConfigManager(config_path="config.json")
@@ -50,6 +80,19 @@ file_manager = FileManager(base_path="./data", config_manager=config_manager)
 use_supabase = os.environ.get("USE_SUPABASE", "false").lower() == "true"
 
 use_gcs = os.environ.get("USE_GCS", "false").lower() == "true" or "GCS_BUCKET_NAME" in os.environ
+
+# Load Supabase credentials from Secret Manager if using Supabase
+if use_supabase:
+    supabase_url = get_secret("supabase-url")
+    supabase_key = get_secret("supabase-key")
+
+    if supabase_url and supabase_key:
+        os.environ["SUPABASE_URL"] = supabase_url
+        os.environ["SUPABASE_KEY"] = supabase_key
+        logger.info("Supabase credentials loaded from Secret Manager")
+    else:
+        logger.warning("Supabase credentials not found in Secret Manager, falling back to JSON mode")
+        use_supabase = False
 
 if use_supabase:
     db_manager = DatabaseManager(
