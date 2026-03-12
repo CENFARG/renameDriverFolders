@@ -21,7 +21,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copiar código del worker
 COPY services/worker-renombrador/src ./src
 COPY services/worker-renombrador/config ./config
-COPY services/worker-renombrador/data ./data
+RUN mkdir -p /app/data
 
 # Usuario no-root
 RUN adduser --system --group appuser

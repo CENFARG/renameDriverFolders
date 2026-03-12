@@ -78,18 +78,32 @@ export class AppComponent implements OnInit, AfterViewInit {
     document.body.appendChild(script);
   }
 
-  requestAccessToken(): void {
-    const tokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: '702567224563-74i4orff38l8afk39j4hsc411mm3d1ma.apps.googleusercontent.com',
-      scope: 'https://www.googleapis.com/auth/drive.readonly',
-      callback: (response: any) => {
-        if (response.access_token) {
-          this.accessToken = response.access_token;
-          console.log('✅ Access Token acquired for Picker');
-        }
-      },
-    });
-    tokenClient.requestAccessToken({ prompt: '' });
+  requestAccessToken(retryCount = 0): void {
+    if (typeof google === 'undefined' || !google.accounts) {
+      if (retryCount < 5) {
+        console.warn(`⚠️ Google Identity Services not ready. Retrying... (${retryCount + 1}/5)`);
+        setTimeout(() => this.requestAccessToken(retryCount + 1), 1000);
+      } else {
+        console.error('❌ Google Identity Services failed to load after 5 retries.');
+      }
+      return;
+    }
+
+    try {
+      const tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: '702567224563-74i4orff38l8afk39j4hsc411mm3d1ma.apps.googleusercontent.com',
+        scope: 'https://www.googleapis.com/auth/drive.readonly',
+        callback: (response: any) => {
+          if (response.access_token) {
+            this.accessToken = response.access_token;
+            console.log('✅ Access Token acquired for Picker');
+          }
+        },
+      });
+      tokenClient.requestAccessToken({ prompt: '' });
+    } catch (e) {
+      console.error('Error initializing token client:', e);
+    }
   }
 
   openPicker(target: 'dashboard' | 'config'): void {
@@ -173,7 +187,11 @@ export class AppComponent implements OnInit, AfterViewInit {
       },
       error: (error) => {
         this.result = 'error';
-        this.resultMessage = error.error?.detail || 'Error al procesar';
+        // Ensure resultMessage is a string and not [object Object]
+        const detail = error.error?.detail;
+        this.resultMessage = typeof detail === 'string' ? detail :
+          (detail?.message || error.message || 'Error desconocido al procesar');
+        console.error('Submission error:', error);
       },
       complete: () => {
         this.isSubmitting = false;
@@ -211,6 +229,18 @@ export class AppComponent implements OnInit, AfterViewInit {
   showScheduleHelp = false;
   showModelHelp = false;
   showConfigTutorial = false;
+  showFormatHelp = false;
+
+  appendTag(tag: string): void {
+    const current = this.currentJob.agent_config.filename_format || '';
+    // Append or replace? Let's just append for now but smart-ish
+    if (current.endsWith('_') || current === '') {
+      this.currentJob.agent_config.filename_format = current + tag;
+    } else {
+      this.currentJob.agent_config.filename_format = current + '_' + tag;
+    }
+    this.cdr.detectChanges();
+  }
 
   updateCronFromDate(): void {
     if (!this.scheduledDate) return;

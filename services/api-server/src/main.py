@@ -276,7 +276,8 @@ class ManualJobRequest(BaseModel):
     
     @validator('folder_id')
     def validate_folder_id(cls, v):
-        if not re.match(r'^[a-zA-Z0-9_-]{20,50}$', v):
+        # Relaxed logic: Google Drive IDs are alphanumeric with - and _
+        if not re.match(r'^[a-zA-Z0-9_-]+$', v):
             raise ValueError('Invalid folder_id format')
         return v
 
@@ -362,8 +363,24 @@ def create_cloud_task(payload: dict) -> str:
     }
     
     # Add OIDC token for authentication
+    # Use WORKER_SERVICE_ACCOUNT env var, or fall back to default compute SA
+    worker_sa = os.environ.get("WORKER_SERVICE_ACCOUNT")
+    if not worker_sa:
+        # Auto-discover: Cloud Run default SA is {project_number}-compute@developer.gserviceaccount.com
+        # For Cloud Run, we can also use the service's own identity
+        import google.auth
+        try:
+            credentials, project = google.auth.default()
+            worker_sa = getattr(credentials, 'service_account_email', None)
+            if not worker_sa:
+                worker_sa = f"{GCP_PROJECT}@appspot.gserviceaccount.com"
+            logger.info(f"Auto-discovered service account: {worker_sa}")
+        except Exception as e:
+            logger.warning(f"Could not auto-discover SA: {e}. Using App Engine default.")
+            worker_sa = f"{GCP_PROJECT}@appspot.gserviceaccount.com"
+    
     task["http_request"]["oidc_token"] = {
-        "service_account_email": os.environ.get("WORKER_SERVICE_ACCOUNT")
+        "service_account_email": worker_sa
     }
     
     # Create task
@@ -494,8 +511,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 @app.post("/api/v1/jobs/manual", response_model=JobResponse)
 async def submit_manual_job(
-    job_id: str, 
-    job_request: ManualJobRequest, # Assuming JobSubmissionRequest is a typo and ManualJobRequest is intended
+    job_request: ManualJobRequest, 
     user: dict = Depends(get_current_user)
 ):
     """
@@ -545,15 +561,6 @@ async def submit_manual_job(
             logger.error(f"Failed to seed default job config: {e}")
             # Continue anyway, maybe it exists but find failed? Or worker will fail.
             
-    # Create task payload
-    payload = {
-        "job_id": job_id,
-        "folder_id": job_request.folder_id,
-        "trigger_type": "manual",
-        "submitted_by": user["email"],
-        "execution_id": execution_log["id"]
-    }
-    
     # Log execution for audit trail (before task creation)
     import time
     from datetime import datetime
@@ -568,6 +575,15 @@ async def submit_manual_job(
         "timestamp": datetime.utcnow().isoformat() + "Z",
         "status": "submitted",
         "task_id": None  # Will be updated after task creation
+    }
+
+    # Create task payload
+    payload = {
+        "job_id": job_id,
+        "folder_id": job_request.folder_id,
+        "trigger_type": "manual",
+        "submitted_by": user["email"],
+        "execution_id": execution_log["id"]
     }
     
     try:
