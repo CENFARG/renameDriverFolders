@@ -116,7 +116,7 @@ export class AppComponent implements OnInit, AfterViewInit {
       .setSelectFolderEnabled(true)
       .setMimeTypes('application/vnd.google-apps.folder');
 
-    const picker = new google.picker.PickerBuilder()
+    const pickerBuilder = new google.picker.PickerBuilder()
       .addView(view)
       .setOAuthToken(this.accessToken)
       .setCallback((data: any) => {
@@ -129,8 +129,19 @@ export class AppComponent implements OnInit, AfterViewInit {
           }
           this.cdr.detectChanges();
         }
-      })
-      .build();
+      });
+
+    // Agregar API key si está configurada (elimina mensaje "Solo para desarrolladores")
+    // @ts-ignore - googleApiKey es una propiedad custom del environment
+    if (environment.googleApiKey) {
+      // @ts-ignore
+      pickerBuilder.setDeveloperKey(environment.googleApiKey);
+      console.log('✅ Using Google API Key for Picker (production mode)');
+    } else {
+      console.log('⚠️ No Google API Key configured - Picker may show developer warning');
+    }
+
+    const picker = pickerBuilder.build();
     picker.setVisible(true);
   }
 
