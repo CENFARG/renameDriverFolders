@@ -192,12 +192,12 @@ export class AppComponent implements OnInit, AfterViewInit {
         this.resultMessage = typeof detail === 'string' ? detail :
           (detail?.message || error.message || 'Error desconocido al procesar');
         console.error('Submission error:', error);
-      },
-      complete: () => {
-        this.isSubmitting = false;
-        this.cdr.detectChanges();
-        setTimeout(() => { this.result = ''; this.cdr.detectChanges(); }, 8000);
       }
+    }).add(() => {
+      // Always reset submitting state (finally equivalent)
+      this.isSubmitting = false;
+      this.cdr.detectChanges();
+      setTimeout(() => { this.result = ''; this.cdr.detectChanges(); }, 8000);
     });
   }
 
@@ -305,6 +305,32 @@ export class AppComponent implements OnInit, AfterViewInit {
         error: (e) => alert('Error al eliminar: ' + e.message)
       });
     }
+  }
+
+  duplicateJob(job: any): void {
+    if (!job.id) {
+      alert('Error: La configuración seleccionada no tiene un ID válido. No se puede duplicar.');
+      return;
+    }
+
+    // Create a copy of the job with a new name and no ID
+    const duplicatedJob = {
+      ...job,
+      id: undefined,
+      name: `${job.name} [COPIA]`,
+      created_at: new Date().toISOString()
+    };
+
+    this.apiService.createJob(duplicatedJob).subscribe({
+      next: () => {
+        this.loadJobs();
+        // Show success message
+        this.result = 'success';
+        this.resultMessage = `Algoritmo "${job.name}" duplicado correctamente como "${duplicatedJob.name}"`;
+        setTimeout(() => { this.result = ''; this.cdr.detectChanges(); }, 5000);
+      },
+      error: (e) => alert('Error al duplicar: ' + (e.error?.detail || e.message))
+    });
   }
 
   signOut(): void {
