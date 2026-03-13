@@ -377,21 +377,14 @@ def create_cloud_task(payload: dict) -> str:
     
     # Add OIDC token for authentication
     # Use WORKER_SERVICE_ACCOUNT env var, or fall back to default compute SA
+    # Compute Engine default SA usually has Cloud Tasks permissions
     worker_sa = os.environ.get("WORKER_SERVICE_ACCOUNT")
     if not worker_sa:
-        # Auto-discover: Cloud Run default SA is {project_number}-compute@developer.gserviceaccount.com
-        # For Cloud Run, we can also use the service's own identity
-        import google.auth
-        try:
-            credentials, project = google.auth.default()
-            worker_sa = getattr(credentials, 'service_account_email', None)
-            if not worker_sa:
-                worker_sa = f"{GCP_PROJECT}@appspot.gserviceaccount.com"
-            logger.info(f"Auto-discovered service account: {worker_sa}")
-        except Exception as e:
-            logger.warning(f"Could not auto-discover SA: {e}. Using App Engine default.")
-            worker_sa = f"{GCP_PROJECT}@appspot.gserviceaccount.com"
-    
+        worker_sa = f"{GCP_PROJECT}@developer.gserviceaccount.com"
+        logger.info(f"Using Compute Engine default SA: {worker_sa}")
+    else:
+        logger.info(f"Using configured SA: {worker_sa}")
+
     task["http_request"]["oidc_token"] = {
         "service_account_email": worker_sa,
         "audience": WORKER_URL
