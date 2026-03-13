@@ -393,7 +393,8 @@ def create_cloud_task(payload: dict) -> str:
             worker_sa = f"{GCP_PROJECT}@appspot.gserviceaccount.com"
     
     task["http_request"]["oidc_token"] = {
-        "service_account_email": worker_sa
+        "service_account_email": worker_sa,
+        "audience": WORKER_URL
     }
     
     # Create task
