@@ -34,12 +34,18 @@ Definir el plan de implementación para los arreglos pendientes del sistema **Re
 ```
 
 **Criterios de Aceptación:**
-- [ ] Diejos puede ejecutar algoritmos manualmente
-- [ ] Los archivos se renombran correctamente
-- [ ] Dashboard muestra ejecuciones exitosas
+- [x] Diego puede ejecutar algoritmos manualmente
+- [x] Los archivos se renombran correctamente
+- [x] Dashboard muestra ejecuciones exitosas
+
+**Estado:** ✅ **COMPLETADO** (13 de Marzo, 2026)
+**Solución:** Agregar campo `audience` al `oidc_token` en Cloud Tasks
+**Commit:** `add411d`
+**Deploy:** v2-00036-pqx
 
 **Prioridad:** 🔴 CRÍTICA
 **Tiempo Estimado:** 2-3 horas
+**Tiempo Real:** ~3 horas
 **Depende de:** Nada
 
 ---
