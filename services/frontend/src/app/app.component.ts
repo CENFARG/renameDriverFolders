@@ -272,7 +272,11 @@ export class AppComponent implements OnInit, AfterViewInit {
         this.currentJob = res;
         this.showEditor = true;
       },
-      error: (e) => alert('Error al cargar configuración: ' + e.message)
+      error: (e) => {
+        console.error('Error loading job:', e);
+        const errorMsg = e.error?.detail || e.message || 'Error desconocido';
+        alert(`Error al cargar configuración: ${errorMsg}\n\nID: ${job.id}`);
+      }
     });
   }
 
@@ -285,8 +289,18 @@ export class AppComponent implements OnInit, AfterViewInit {
       next: () => {
         this.showEditor = false;
         this.loadJobs();
+        // Show success message
+        this.result = 'success';
+        this.resultMessage = this.isEditing ?
+          'Algoritmo actualizado correctamente' :
+          'Algoritmo creado correctamente';
+        setTimeout(() => { this.result = ''; this.cdr.detectChanges(); }, 5000);
       },
-      error: (e) => alert('Error al guardar: ' + (e.error?.detail || e.message))
+      error: (e) => {
+        console.error('Error saving job:', e);
+        const errorMsg = e.error?.detail || e.message || 'Error desconocido';
+        alert(`Error al guardar: ${errorMsg}\n\n${this.isEditing ? 'Acción: Actualizar' : 'Acción: Crear'}\nID: ${this.currentJob.id || 'N/A'}`);
+      }
     });
   }
 
@@ -299,10 +313,20 @@ export class AppComponent implements OnInit, AfterViewInit {
       alert('Error: No se pudo identificar el ID de la configuración para eliminar.');
       return;
     }
-    if (confirm('¿Estás seguro de eliminar esta configuración?')) {
+    if (confirm('¿Estás seguro de eliminar esta configuración? Esta acción no se puede deshacer.')) {
       this.apiService.deleteJob(id).subscribe({
-        next: () => this.loadJobs(),
-        error: (e) => alert('Error al eliminar: ' + e.message)
+        next: () => {
+          this.loadJobs();
+          // Show success message
+          this.result = 'success';
+          this.resultMessage = 'Algoritmo eliminado correctamente';
+          setTimeout(() => { this.result = ''; this.cdr.detectChanges(); }, 5000);
+        },
+        error: (e) => {
+          console.error('Error deleting job:', e);
+          const errorMsg = e.error?.detail || e.message || 'Error desconocido';
+          alert(`Error al eliminar: ${errorMsg}\n\nID: ${id}`);
+        }
       });
     }
   }
