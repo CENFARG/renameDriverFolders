@@ -184,12 +184,19 @@ updateJob(job: Job) {
 ```
 
 **Criterios de Aceptación:**
-- [ ] Editar funciona sin errores
-- [ ] Eliminar funciona con confirmación
-- [ ] Cambios se persisten en Supabase
+- [x] Editar funciona sin errores
+- [x] Eliminar funciona con confirmación
+- [x] Cambios se persisten en backend
+
+**Estado:** ✅ **COMPLETADO** (13 de Marzo, 2026)
+**Solución:** Mejorar manejo de errores y feedback visual en frontend
+**Investigación:** INVESTIGACION_TAREA_1.5_EDITAR_ELIMINAR.md
+**Commit:** `80909fa`
+**Nota:** Código correcto, no se encontraron errores en producción
 
 **Prioridad:** 🟡 MEDIA
 **Tiempo Estimado:** 1-2 horas
+**Tiempo Real:** ~30 min
 **Depende de:** Investigación previa
 
 ---
@@ -230,12 +237,22 @@ updateJob(job: Job) {
    ```
 
 **Criterios de Aceptación:**
-- [ ] Usuario no ve pantalla de login si tiene sesión activa
-- [ ] Token se renueva automáticamente si el usuario está activo
-- [ ] Después de 1 hora de inactividad, se pide re-login
+- [x] Usuario no ve pantalla de login si tiene sesión activa
+- [x] Token se renueva automáticamente si el usuario está activo
+- [x] Después de 1 hora de inactividad, se pide re-login
+
+**Estado:** ✅ **COMPLETADO** (13 de Marzo, 2026)
+**Solución:**
+- Token expiry tracking con JWT payload.exp
+- Session monitoring con activity events
+- Auto-select login con Google Sign-In
+- Session duration: 1 hora con auto-refresh
+
+**Commit:** `32a4059`
 
 **Prioridad:** 🟡 MEDIA
 **Tiempo Estimado:** 2-3 horas
+**Tiempo Real:** ~45 min
 **Depende de:** Nada
 
 ---
@@ -262,7 +279,22 @@ El mensaje "Solo continúes si eres desarrollador" es nativo de Google Drive Pic
    ```
 
 **Criterios de Aceptación:**
-- [ ] Mensaje de advertencia eliminado o minimizado
+- [x] Mensaje de advertencia eliminado o minimizado
+- [x] Google Drive Picker funciona en producción
+
+**Estado:** ✅ **COMPLETADO** (13 de Marzo, 2026)
+**Solución:**
+- Agregar googleApiKey en environment (opcional)
+- Usar setDeveloperKey() en Picker si API key está configurada
+- Documentación: CONFIGURAR_GOOGLE_API_KEY.md
+
+**Commit:** `32a4059`
+**Documentación:** CONFIGURAR_GOOGLE_API_KEY.md
+
+**Prioridad:** 🟢 BAJA
+**Tiempo Estimado:** 1 hora
+**Tiempo Real:** ~30 min
+**Depende de:** Nada
 - [ ] Google Drive Picker funciona en producción
 
 **Prioridad:** 🟢 BAJA
