@@ -102,12 +102,17 @@ submitJob() {
 ```
 
 **Criterios de Aceptación:**
-- [ ] Botón se resetea después de error
-- [ ] Usuario puede reintentar
-- [ ] Mensaje de error es claro
+- [x] Botón se resetea después de error
+- [x] Usuario puede reintentar
+- [x] Mensaje de error es claro
+
+**Estado:** ✅ **COMPLETADO** (13 de Marzo, 2026)
+**Solución:** Reemplazar complete() con .add() que siempre se ejecuta (finally)
+**Commit:** `e5fd28f`
 
 **Prioridad:** 🟡 MEDIA
 **Tiempo Estimado:** 30 min
+**Tiempo Real:** ~20 min
 **Depende de:** Nada
 
 ---
@@ -141,12 +146,17 @@ duplicateJob(job: Job) {
 ```
 
 **Criterios de Aceptación:**
-- [ ] Botón "Duplicar" visible en cada algoritmo
-- [ ] Al hacer clic, se crea copia con "[COPIA]" en nombre
-- [ ] Copia se puede editar independientemente
+- [x] Botón "Duplicar" visible en cada algoritmo
+- [x] Al hacer clic, se crea copia con "[COPIA]" en nombre
+- [x] Copia se puede editar independientemente
+
+**Estado:** ✅ **COMPLETADO** (13 de Marzo, 2026)
+**Solución:** Agregar botón "Duplicar" en tabla de algoritmos + función duplicateJob()
+**Commit:** `e5fd28f`
 
 **Prioridad:** 🟡 MEDIA
 **Tiempo Estimado:** 1 hora
+**Tiempo Real:** ~25 min
 **Depende de:** Nada
 
 ---
