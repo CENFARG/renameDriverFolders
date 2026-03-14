@@ -99,7 +99,7 @@ logger.info(f"Using Compute Engine default SA: {worker_sa}")
 ## 📊 ESTADO DEL SISTEMA
 
 **Deployments Activos:**
-- ✅ API Server: v2-00038-wwc (con Compute Engine SA)
+- ✅ API Server: v2-00040-897 (con logging extendido de queue path)
 - ✅ Frontend: v2-00029-rb9
 - ✅ Worker: v2-00027-tkz (revisión anterior)
 
@@ -123,6 +123,8 @@ logger.info(f"Using Compute Engine default SA: {worker_sa}")
 | `0d503fc` | docs: resumen sesión completa |
 | `0317d0f` | fix: usar Compute Engine SA (Error 400) |
 | `0317d0f` (commit 2) | docs: actualización error 400 Cloud Tasks |
+| `8f7eb8b` | debug: add detailed queue path logging for 404 error investigation |
+| `332df09` | chore: add local Dockerfile for api-server deployment |
 
 ---
 
