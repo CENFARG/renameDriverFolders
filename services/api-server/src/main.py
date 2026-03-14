@@ -423,7 +423,12 @@ def create_cloud_task(payload: dict) -> str:
     try:
         logger.info("🚀 Calling tasks_client.create_task()...")
         parent = tasks_client.queue_path(GCP_PROJECT, GCP_LOCATION, TASKS_QUEUE)
-        logger.info(f"   parent path: {parent}")
+        logger.info(f"   Queue path constructed: {parent}")
+
+        # Log expected format for debugging
+        expected_path = f"projects/{GCP_PROJECT}/locations/{GCP_LOCATION}/queues/{TASKS_QUEUE}"
+        logger.info(f"   Expected path format: {expected_path}")
+        logger.info(f"   Path matches expected: {parent == expected_path}")
 
         logger.info("   Sending request to Cloud Tasks API...")
         response = tasks_client.create_task(request={"parent": parent, "task": task})
