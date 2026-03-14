@@ -346,26 +346,43 @@ def create_cloud_task(payload: dict) -> str:
     """
     Create a task in Google Cloud Tasks.
     Crea una tarea en Google Cloud Tasks.
-    
+
     Args:
         payload: Task payload to send to worker.
-        
+
     Returns:
         Task ID.
     """
+    logger.info("="*80)
+    logger.info("🔧 CREATING CLOUD TASK - STARTING DEBUG")
+    logger.info("="*80)
+
     if not tasks_client:
+        logger.error("❌ tasks_client is None")
         raise HTTPException(
             status_code=500,
             detail="Cloud Tasks client not initialized"
         )
-    
+    logger.info(f"✅ tasks_client initialized: {type(tasks_client)}")
+
     if not all([GCP_PROJECT, GCP_LOCATION, TASKS_QUEUE, WORKER_URL]):
+        logger.error(f"❌ Cloud Tasks configuration incomplete:")
+        logger.error(f"   GCP_PROJECT: {GCP_PROJECT}")
+        logger.error(f"   GCP_LOCATION: {GCP_LOCATION}")
+        logger.error(f"   TASKS_QUEUE: {TASKS_QUEUE}")
+        logger.error(f"   WORKER_URL: {WORKER_URL}")
         raise HTTPException(
             status_code=500,
             detail="Cloud Tasks configuration incomplete"
         )
-    
+    logger.info(f"✅ Cloud Tasks config validated:")
+    logger.info(f"   GCP_PROJECT: {GCP_PROJECT}")
+    logger.info(f"   GCP_LOCATION: {GCP_LOCATION}")
+    logger.info(f"   TASKS_QUEUE: {TASKS_QUEUE}")
+    logger.info(f"   WORKER_URL: {WORKER_URL}")
+
     # Build task
+    logger.info(f"📦 Building task with payload: {payload}")
     task = {
         "http_request": {
             "http_method": tasks_v2.HttpMethod.POST,
@@ -374,7 +391,12 @@ def create_cloud_task(payload: dict) -> str:
             "body": json.dumps(payload).encode(),
         }
     }
-    
+    logger.info(f"✅ Task structure created:")
+    logger.info(f"   http_method: {task['http_request']['http_method']}")
+    logger.info(f"   url: {task['http_request']['url']}")
+    logger.info(f"   headers: {task['http_request']['headers']}")
+    logger.info(f"   body length: {len(task['http_request']['body'])} bytes")
+
     # Add OIDC token for authentication
     # Use WORKER_SERVICE_ACCOUNT env var, or fall back to default compute SA
     # Compute Engine default SA usually has Cloud Tasks permissions
@@ -389,15 +411,48 @@ def create_cloud_task(payload: dict) -> str:
         "service_account_email": worker_sa,
         "audience": WORKER_URL
     }
-    
+    logger.info(f"✅ OIDC Token configured:")
+    logger.info(f"   service_account_email: {task['http_request']['oidc_token']['service_account_email']}")
+    logger.info(f"   audience: {task['http_request']['oidc_token']['audience']}")
+
+    # Log the full task structure (be careful with sensitive data)
+    logger.info(f"📋 Full task structure (JSON):")
+    logger.info(f"{json.dumps(task, indent=2, default=str)}")
+
     # Create task
-    parent = tasks_client.queue_path(GCP_PROJECT, GCP_LOCATION, TASKS_QUEUE)
-    response = tasks_client.create_task(request={"parent": parent, "task": task})
-    
-    task_id = response.name.split("/")[-1]
-    logger.info(f"Task created: {task_id} for worker {WORKER_URL}")
-    
-    return task_id
+    try:
+        logger.info("🚀 Calling tasks_client.create_task()...")
+        parent = tasks_client.queue_path(GCP_PROJECT, GCP_LOCATION, TASKS_QUEUE)
+        logger.info(f"   parent path: {parent}")
+
+        logger.info("   Sending request to Cloud Tasks API...")
+        response = tasks_client.create_task(request={"parent": parent, "task": task})
+
+        logger.info(f"✅ Cloud Tasks API response received")
+        logger.info(f"   response type: {type(response)}")
+        logger.info(f"   response.name: {response.name}")
+
+        task_id = response.name.split("/")[-1]
+        logger.info(f"✅ Task created successfully: {task_id}")
+        logger.info("="*80)
+
+        return task_id
+
+    except Exception as e:
+        logger.error(f"❌ ERROR in tasks_client.create_task():")
+        logger.error(f"   Exception type: {type(e).__name__}")
+        logger.error(f"   Exception message: {str(e)}")
+        logger.error(f"   Exception args: {e.args}")
+
+        # Log full traceback if available
+        import traceback
+        logger.error(f"   Full traceback:\n{traceback.format_exc()}")
+
+        logger.info("="*80)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to create task: {str(e)}"
+        )
 
 
 def verify_auth(request: Request) -> dict:
