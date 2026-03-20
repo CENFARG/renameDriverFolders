@@ -23,6 +23,7 @@ from contextlib import asynccontextmanager
 from pydantic import BaseModel
 import google.auth
 from google.oauth2 import service_account
+from google.oauth2.credentials import Credentials as OAuthCredentials  # OAuth user credentials
 from google.cloud import storage
 from google.cloud import secretmanager
 from googleapiclient.discovery import build
@@ -166,15 +167,39 @@ app = FastAPI(
 
 # --- Request Models ---
 
+class UserCredentials(BaseModel):
+    """
+    User OAuth credentials passed from API Server.
+
+    Security:
+    - access_token is validated by API Server before being sent
+    - Token is short-lived (~60 min)
+    - Scope is limited to drive API
+    """
+    access_token: str
+    email: str
+    name: Optional[str] = None
+    scope: str = "https://www.googleapis.com/auth/drive"
+
+    class Config:
+        # Extra fields for future compatibility
+        extra = "ignore"
+
+
 class TaskPayload(BaseModel):
     """
     Payload for Cloud Tasks.
+
+    Contains job configuration and optionally user credentials.
     """
     job_id: Optional[str] = None
     folder_id: Optional[str] = None
-    user_token: Optional[str] = None
+    user_token: Optional[str] = None  # Deprecated: kept for backward compatibility
     trigger_type: str = "scheduled"  # "scheduled" or "manual"
     execution_id: Optional[str] = None
+
+    # NEW: User OAuth credentials (optional, for manual jobs)
+    user_credentials: Optional[UserCredentials] = None
 
 
 class JobRunRequest(BaseModel):
@@ -205,6 +230,52 @@ def get_credentials():
     except Exception as e:
         logger.error(f"Failed to get credentials: {e}")
         raise
+
+
+def get_user_credentials(access_token: str, scope: str):
+    """
+    Create OAuth credentials from user access token.
+
+    This creates credentials that the Worker can use to access Google Drive
+    on behalf of the user, instead of using service account credentials.
+
+    Args:
+        access_token: User's OAuth access token (validated by API Server)
+        scope: OAuth scope (e.g., https://www.googleapis.com/auth/drive)
+
+    Returns:
+        OAuth credentials object for Google API calls
+
+    Security:
+    - Access token is short-lived (~60 min)
+    - No refresh token is stored
+    - Credentials are only used in memory
+    """
+    return OAuthCredentials(
+        token=access_token,
+        scopes=[scope],
+        token_uri="https://oauth2.googleapis.com/token",
+        # client_id and client_secret not needed for access token usage
+        client_id="",
+        client_secret=""
+    )
+
+
+def mask_access_token(token: str) -> str:
+    """
+    Mask access token for safe logging.
+
+    Shows only first 4 and last 4 characters.
+
+    Args:
+        token: Access token to mask
+
+    Returns:
+        Masked token string
+    """
+    if len(token) > 8:
+        return f"{token[:4]}...{token[-4:]}"
+    return "****"
 
 
 def load_job_config(job_id: str) -> Optional[Dict[str, Any]]:
@@ -643,21 +714,57 @@ async def run_task(request: Request):
     """
     Main endpoint triggered by Cloud Tasks.
     Punto de entrada principal disparado por Cloud Tasks.
-    
-    Processes jobs based on payload:
-    - If job_id provided: runs that specific job
-    - If no job_id: runs all active scheduled jobs
+
+    Processes jobs with user OAuth credentials (manual jobs) or
+    service account credentials (scheduled jobs).
+
+    Security:
+    - User credentials are used when available (manual jobs)
+    - Service account fallback for scheduled jobs
+    - Access tokens are masked in logs
     """
     logger.info("Task received from Cloud Tasks")
-    
+
     try:
         payload = await request.json()
         task = TaskPayload(**payload)
     except Exception as e:
         logger.error(f"Invalid task payload: {e}")
         raise HTTPException(status_code=400, detail=f"Invalid payload: {e}")
-    
-    credentials = get_credentials()
+
+    # ============================================================
+    # NUEVO: Determinar qué credenciales usar
+    # ============================================================
+
+    if task.user_credentials and task.user_credentials.access_token:
+        # Manual job with user credentials
+        user_email = task.user_credentials.email
+        access_token = task.user_credentials.access_token
+        scope = task.user_credentials.scope
+
+        logger.info(f"🔐 Using USER OAuth credentials")
+        logger.info(f"   User: {user_email}")
+
+        # Mask token for logging (don't log full token)
+        masked_token = mask_access_token(access_token)
+        logger.info(f"   Access token: {masked_token}")
+        logger.info(f"   Scope: {scope}")
+
+        # Create OAuth credentials from user's access token
+        credentials = get_user_credentials(access_token, scope)
+
+        logger.info(f"   ✅ User OAuth credentials created")
+
+    else:
+        # Scheduled job with service account credentials
+        logger.info("🔧 Using SERVICE ACCOUNT credentials (scheduled job)")
+        logger.info("   ⚠️  No user credentials provided")
+
+        credentials = get_credentials()
+
+    # ============================================================
+    # FIN NUEVO
+    # ============================================================
     
     # Process specific job or all active jobs
     if task.job_id:
