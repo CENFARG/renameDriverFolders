@@ -10,13 +10,12 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copiar e instalar core package primero
+# Copiar requirements y core package
 COPY packages/core-renombrador /app/packages/core-renombrador
-RUN pip install --no-cache-dir /app/packages/core-renombrador
-
-# Copiar requirements del worker
 COPY services/worker-renombrador/requirements.txt .
-RUN pip install -r requirements.txt
+
+# Instalar todo en un solo comando para resolver dependencias correctamente
+RUN pip install --no-cache-dir /app/packages/core-renombrador -r requirements.txt
 
 # Copiar código del worker
 COPY services/worker-renombrador/src ./src
