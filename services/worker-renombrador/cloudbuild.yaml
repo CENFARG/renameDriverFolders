@@ -9,6 +9,12 @@ steps:
       - '.'
     timeout: 1200s
 
+  # Push image explicitly before deploy
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/renombradorarchivosgdrive-worker-v2:latest'
+
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: 'gcloud'
     args:
