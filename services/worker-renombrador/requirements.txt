@@ -11,6 +11,7 @@ google-api-python-client>=2.108.0
 google-auth>=2.25.0
 google-auth-httplib2>=0.1.1
 google-cloud-storage>=2.13.0
+google-cloud-secret-manager>=2.20.0
 
 # The core_renombrador package (installed via Dockerfile)
 # Includes: agno, google-cloud-vision, pdf2image, Pillow, supabase, etc.
