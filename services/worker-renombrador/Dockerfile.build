@@ -10,13 +10,13 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copiar requirements del worker primero (para google-cloud-secret-manager)
+# Copiar e instalar core package primero
+COPY packages/core-renombrador /app/packages/core-renombrador
+RUN pip install --no-cache-dir /app/packages/core-renombrador
+
+# Copiar requirements del worker
 COPY services/worker-renombrador/requirements.txt .
 RUN pip install -r requirements.txt
-
-# Copiar e instalar core package despues
-COPY packages/core-renombrador /app/packages/core-renombrador
-RUN pip install /app/packages/core-renombrador
 
 # Copiar código del worker
 COPY services/worker-renombrador/src ./src
