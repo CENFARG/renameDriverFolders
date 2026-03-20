@@ -25,7 +25,7 @@ import google.auth
 from google.oauth2 import service_account
 from google.oauth2.credentials import Credentials as OAuthCredentials  # OAuth user credentials
 from google.cloud import storage
-from google.cloud import secretmanager
+# from google.cloud import secretmanager  # Imported below optionally
 from googleapiclient.discovery import build
 
 # Core modules
@@ -55,12 +55,17 @@ def get_secret(secret_id: str) -> str:
 
     # Production: use Secret Manager
     try:
+        from google.cloud import secretmanager
         client = secretmanager.SecretManagerServiceClient()
         project_id = os.environ.get("GCP_PROJECT_ID", "cloud-functions-474716")
         name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
         response = client.access_secret_version(request={"name": name})
         logger.info(f"Using Secret Manager for {secret_id}")
         return response.payload.data.decode("UTF-8").strip()
+    except ImportError as e:
+        logger.warning(f"Secret Manager not available: {e}")
+        logger.warning(f"Please set {env_var} environment variable")
+        return ""
     except Exception as e:
         logger.warning(f"Failed to get secret {secret_id}: {e}")
         return ""
