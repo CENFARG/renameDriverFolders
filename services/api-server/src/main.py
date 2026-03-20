@@ -342,6 +342,35 @@ class JobResponse(BaseModel):
 
 # --- Helper Functions ---
 
+def sanitize_payload(payload: dict) -> dict:
+    """
+    Remove sensitive data from payload for logging.
+
+    Masks access tokens to prevent credential leakage in logs.
+
+    Args:
+        payload: Original payload with sensitive data
+
+    Returns:
+        Sanitized payload with masked credentials
+    """
+    import copy
+    sanitized = copy.deepcopy(payload)
+
+    # Mask access tokens if present
+    if "user_credentials" in sanitized and isinstance(sanitized["user_credentials"], dict):
+        if "access_token" in sanitized["user_credentials"]:
+            token = sanitized["user_credentials"]["access_token"]
+            # Show only first 4 and last 4 characters
+            if len(token) > 8:
+                masked = f"{token[:4]}...{token[-4:]}"
+            else:
+                masked = "****"
+            sanitized["user_credentials"]["access_token"] = masked
+
+    return sanitized
+
+
 def create_cloud_task(payload: dict) -> str:
     """
     Create a task in Google Cloud Tasks.
@@ -382,12 +411,18 @@ def create_cloud_task(payload: dict) -> str:
     logger.info(f"   WORKER_URL: {WORKER_URL}")
 
     # Build task
-    logger.info(f"📦 Building task with payload: {payload}")
+    logger.info(f"📦 Building task with payload")
+
+    # Sanitize payload for logging (don't log access tokens)
+    sanitized_payload = sanitize_payload(payload)
+    logger.debug(f"   Sanitized payload: {sanitized_payload}")
+
     task = {
         "http_request": {
             "http_method": tasks_v2.HttpMethod.POST,
             "url": f"{WORKER_URL}/run-task",
             "headers": {"Content-Type": "application/json"},
+            # Payload is included in body, not in logs
             "body": json.dumps(payload).encode(),
         }
     }
@@ -578,14 +613,63 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 @app.post("/api/v1/jobs/manual", response_model=JobResponse)
 async def submit_manual_job(
-    job_request: ManualJobRequest, 
+    job_request: ManualJobRequest,
+    request: Request,
     user: dict = Depends(get_current_user)
 ):
     """
-    Submit a manual job for processing with unified authentication.
+    Submit a manual job for processing with user OAuth credentials.
+
+    Security:
+    - Extracts user's access token from Authorization header
+    - Validates token before creating Cloud Task
+    - Passes token to Worker for user-specific Drive access
     """
     logger.info(f"Manual job submission from {user['email']}")
-    
+
+    # ============================================================
+    # NUEVO: Extraer y validar access token del usuario
+    # ============================================================
+
+    # Extract access token from Authorization header
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        logger.error("❌ Missing or invalid Authorization header")
+        raise HTTPException(
+            status_code=401,
+            detail="Authorization header required (Bearer token)"
+        )
+
+    access_token = auth_header.split("Bearer ")[1].strip()
+
+    # Validate the access token (double verification)
+    try:
+        # Verify token is valid and get user info
+        token_info = oauth_manager.verify_token(access_token)
+
+        # Ensure token belongs to the authenticated user
+        if token_info.get("email") != user.get("email"):
+            logger.error(f"❌ Token email mismatch: {token_info.get('email')} != {user.get('email')}")
+            raise HTTPException(
+                status_code=401,
+                detail="Token does not match authenticated user"
+            )
+
+        logger.info(f"✅ Access token validated for user: {user['email']}")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Access token validation failed: {e}")
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired access token"
+        )
+
+    # ============================================================
+    # FIN NUEVO
+    # ============================================================
+
     # Find appropriate job config
     # For manual jobs, we use a generic template or specific job_type
     job_id = f"job-manual-{job_request.job_type}"
@@ -644,14 +728,29 @@ async def submit_manual_job(
         "task_id": None  # Will be updated after task creation
     }
 
-    # Create task payload
+    # Create task payload with user credentials
     payload = {
         "job_id": job_id,
         "folder_id": job_request.folder_id,
         "trigger_type": "manual",
         "submitted_by": user["email"],
-        "execution_id": execution_log["id"]
+        "execution_id": execution_log["id"],
+        # ============================================================
+        # NUEVO: Incluir credenciales del usuario para el Worker
+        # ============================================================
+        "user_credentials": {
+            "access_token": access_token,  # Validated access token
+            "email": user["email"],
+            "name": user.get("name", "Unknown"),
+            "scope": "https://www.googleapis.com/auth/drive"
+        }
+        # ============================================================
+        # FIN NUEVO
+        # ============================================================
     }
+
+    # Log payload with sanitized credentials (don't log full token)
+    logger.info(f"📦 Creating task with sanitized payload: {sanitize_payload(payload)}")
     
     try:
         executions_manager.insert(execution_log)
