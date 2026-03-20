@@ -16,7 +16,7 @@ RUN pip install --no-cache-dir /app/packages/core-renombrador
 
 # Copiar requirements del worker
 COPY services/worker-renombrador/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install -r requirements.txt
 
 # Copiar código del worker
 COPY services/worker-renombrador/src ./src
