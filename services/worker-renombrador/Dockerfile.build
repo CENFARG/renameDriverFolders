@@ -10,19 +10,20 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Crear usuario no-root primero
-RUN adduser --system --group appuser
+# Crear virtual environment
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
 # Copiar requirements y core package
 COPY packages/core-renombrador /app/packages/core-renombrador
 COPY services/worker-renombrador/requirements.txt .
 
 # Instalar todo en un solo comando para resolver dependencias correctamente
-# Usar --user para instalar en el home del usuario
-RUN pip install --no-cache-dir --user /app/packages/core-renombrador -r requirements.txt
+RUN pip install --no-cache-dir /app/packages/core-renombrador -r requirements.txt
 
-# Dar ownership al usuario no-root
-RUN chown -R appuser:appuser /app
+# Crear usuario no-root
+RUN adduser --system --group appuser
+RUN chown -R appuser:appuser /app /opt/venv
 
 # Copiar código del worker
 COPY services/worker-renombrador/src ./src
