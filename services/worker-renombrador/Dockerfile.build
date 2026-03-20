@@ -10,25 +10,26 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
+# Crear usuario no-root primero
+RUN adduser --system --group appuser
+
 # Copiar requirements y core package
 COPY packages/core-renombrador /app/packages/core-renombrador
 COPY services/worker-renombrador/requirements.txt .
 
 # Instalar todo en un solo comando para resolver dependencias correctamente
-RUN pip install --no-cache-dir /app/packages/core-renombrador -r requirements.txt
+# Usar --user para instalar en el home del usuario
+RUN pip install --no-cache-dir --user /app/packages/core-renombrador -r requirements.txt
 
-# Debug: verificar que secretmanager está instalado
-RUN python -c "import google.cloud; print(dir(google.cloud))" || echo "google.cloud not found"
-RUN python -c "from google.cloud import secretmanager; print('secretmanager imported successfully')" || echo "secretmanager import failed"
+# Dar ownership al usuario no-root
+RUN chown -R appuser:appuser /app
 
 # Copiar código del worker
 COPY services/worker-renombrador/src ./src
 COPY services/worker-renombrador/config ./config
-RUN mkdir -p /app/data
+RUN mkdir -p /app/data && chown -R appuser:appuser /app
 
-# Usuario no-root
-RUN adduser --system --group appuser
-RUN chown -R appuser:appuser /app
+# Switch al usuario no-root
 USER appuser
 
 EXPOSE 8080
