@@ -18,6 +18,7 @@ export class AuthService {
     private readonly SESSION_DURATION = 60 * 60 * 1000; // 1 hora en ms
     private readonly WARNING_THRESHOLD = 5 * 60 * 1000; // 5 minutos en ms
     private refreshTimer: any;
+    private tokenClient: any; // OAuth 2.0 Token Client
 
     constructor(private http: HttpClient) {
         this.loadUserFromStorage();
@@ -57,52 +58,106 @@ export class AuthService {
 
     initializeGoogleSignIn(): void {
         if (typeof google !== 'undefined') {
-            google.accounts.id.initialize({
+            // Usar OAuth 2.0 Token Client para obtener Access Tokens (NO ID Tokens)
+            this.tokenClient = google.accounts.oauth2.initTokenClient({
                 client_id: environment.oauthClientId,
-                callback: this.handleCredentialResponse.bind(this),
-                // Auto-select account if user has one active session
-                auto_select: true,
-                // Use approved login hint to avoid re-login
-                login_hint: this.getLoginHint()
+                scope: 'https://www.googleapis.com/auth/drive',
+                callback: (response: any) => {
+                    if (response.access_token) {
+                        this.handleCredentialResponse(response);
+                    } else if (response.error) {
+                        console.error('❌ OAuth Error:', response.error);
+                        this.clearSession();
+                        this.userSubject.next(null);
+                    }
+                },
+                error_callback: (error: any) => {
+                    console.error('❌ OAuth Token Error:', error);
+                    this.clearSession();
+                    this.userSubject.next(null);
+                }
             });
         }
     }
 
     renderButton(element: HTMLElement): void {
         if (typeof google !== 'undefined') {
-            google.accounts.id.renderButton(element, {
-                theme: 'outline',
-                size: 'large',
-                text: 'signin_with',
-                shape: 'rectangular'
-            });
+            // Crear un button custom que dispare el flujo OAuth 2.0
+            element.innerHTML = '';
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'google-oauth-button';
+            button.textContent = 'Sign in with Google';
+            button.style.cssText = `
+                background-color: #4285f4;
+                color: white;
+                border: none;
+                padding: 12px 24px;
+                border-radius: 4px;
+                font-size: 14px;
+                font-weight: 500;
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                gap: 12px;
+            `;
+            button.onclick = () => this.requestAccessToken();
+            element.appendChild(button);
+        }
+    }
+
+    requestAccessToken(): void {
+        if (this.tokenClient) {
+            this.tokenClient.requestAccessToken();
+        } else {
+            console.error('❌ Token client not initialized');
         }
     }
 
     private handleCredentialResponse(response: any): void {
-        const token = response.credential;
-        this.setToken(token);
+        // OAuth 2.0 response contiene access_token, no credential
+        const accessToken = response.access_token;
+        this.setToken(accessToken);
 
-        // Decode JWT to get user info and expiry
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        const user: User = {
-            email: payload.email,
-            name: payload.name,
-            picture: payload.picture
-        };
+        // Obtener info del usuario usando el access_token
+        this.fetchUserInfo(accessToken).subscribe({
+            next: (user) => {
+                this.userSubject.next(user);
+                localStorage.setItem('user', JSON.stringify(user));
+                localStorage.setItem('login_hint', user.email);
 
-        this.userSubject.next(user);
-        localStorage.setItem('user', JSON.stringify(user));
+                // Calcular expiración del token (Google access_tokens duran 1 hora)
+                const expires_in = response.expires_in || 3600; // segundos
+                const exp = Date.now() + (expires_in * 1000);
+                localStorage.setItem(this.tokenExpiryKey, exp.toString());
 
-        // Guardar login hint para auto-select en el futuro
-        localStorage.setItem('login_hint', payload.email);
+                // Actualizar actividad de sesión
+                this.updateSessionActivity();
 
-        // Calcular expiración del token (Google tokens duran 1 hora)
-        const exp = payload.exp * 1000; // Convertir a ms
-        localStorage.setItem(this.tokenExpiryKey, exp.toString());
+                console.log('✅ OAuth 2.0 Login successful:', user.email);
+            },
+            error: (err) => {
+                console.error('❌ Error fetching user info:', err);
+                this.clearSession();
+                this.userSubject.next(null);
+            }
+        });
+    }
 
-        // Actualizar actividad de sesión
-        this.updateSessionActivity();
+    private fetchUserInfo(accessToken: string): Observable<User> {
+        // Llamar a userinfo endpoint de Google para obtener email, name
+        return this.http.get<any>('https://www.googleapis.com/oauth2/v3/userinfo', {
+            headers: { 'Authorization': `Bearer ${accessToken}` }
+        }).pipe(
+            tap(response => console.log('📋 User info received:', response.email)),
+            catchError(err => {
+                console.error('❌ User info fetch failed:', err);
+                return of(null);
+            }),
+            tap(response => {
+                if (!response) throw new Error('Failed to fetch user info');
+            })
+        );
     }
 
     private loadUserFromStorage(): void {
@@ -223,11 +278,16 @@ export class AuthService {
     }
 
     signOut(): void {
+        // Revocar el access_token si existe
+        const token = this.getToken();
+        if (token && typeof google !== 'undefined') {
+            google.accounts.oauth2.revoke(token, () => {
+                console.log('✅ Token revoked');
+            });
+        }
+
         this.clearSession();
         this.userSubject.next(null);
-        if (typeof google !== 'undefined') {
-            google.accounts.id.disableAutoSelect();
-        }
     }
 
     getCurrentUser(): User | null {
