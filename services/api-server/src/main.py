@@ -497,56 +497,52 @@ def create_cloud_task(payload: dict) -> str:
 
 def verify_auth(request: Request) -> dict:
     """
-    Unified authentication with IAP priority and legacy OAuth fallback.
-    Enforces domain authorization and rate limiting globally.
+    Unified authentication with IAP headers priority and OAuth 2.0 Access Token fallback.
+
+    IAP (Identity-Aware Proxy) sends these headers when enabled:
+    - x-goog-iap-user-email: User's email address
+    - x-goog-iap-verified-id-email: Verified email
+
+    OAuth 2.0 sends:
+    - Authorization: Bearer <access_token>
+
+    Access Tokens are validated by calling Google's userinfo endpoint.
     """
     user_info = None
-    
-    # 1. Try IAP (Priority)
-    iap_jwt = request.headers.get("X-Goog-IAP-JWT-Assertion")
-    if iap_jwt:
-        try:
-            from google.auth.transport import requests as auth_requests
-            from google.oauth2 import id_token
-            expected_audience = os.getenv("IAP_AUDIENCE")
-            
-            payload = id_token.verify_oauth2_token(
-                iap_jwt, 
-                auth_requests.Request(),
-                audience=expected_audience
-            )
-            
-            if payload.get("iss") != "https://cloud.google.com/iap":
-                raise ValueError("Invalid issuer")
-                
-            user_info = {
-                "email": payload.get("email"),
-                "sub": payload.get("sub"),
-                "name": payload.get("name", ""),
-                "domain": payload.get("email", "").split("@")[-1],
-                "auth_type": "iap"
-            }
-        except Exception as e:
-            logger.error(f"IAP verification failed: {e}")
-            if os.environ.get("ENV") == "production":
-                raise HTTPException(status_code=401, detail="Missing or invalid IAP assertion")
 
-    # 2. Try legacy OAuth (Fallback/Dev)
+    # 1. Try IAP headers first (Priority - when IAP is enabled)
+    iap_email = request.headers.get("x-goog-iap-user-email") or request.headers.get("X-Goog-IAP-User-Email")
+    if iap_email:
+        logger.info(f"✅ IAP authentication detected for: {iap_email}")
+        user_info = {
+            "email": iap_email,
+            "sub": iap_email,  # Use email as subject for IAP
+            "name": iap_email.split("@")[0],  # Extract name from email
+            "domain": iap_email.split("@")[-1],
+            "auth_type": "iap"
+        }
+
+    # 2. Try OAuth 2.0 Access Token (Fallback/Dev)
     if not user_info:
-        if not oauth_manager:
-            raise HTTPException(status_code=503, detail="Authentication server unavailable")
-            
-        auth_header = request.headers.get("Authorization")
+        auth_header = request.headers.get("Authorization") or request.headers.get("authorization")
         if not auth_header or not auth_header.startswith("Bearer "):
-            raise HTTPException(status_code=401, detail="Authentication required (IAP or Bearer)")
-            
+            raise HTTPException(
+                status_code=401,
+                detail="Authentication required. Please login through Google."
+            )
+
         token = auth_header.split("Bearer ")[1]
         try:
-            user_info = oauth_manager.verify_token(token)
+            # Validate Access Token by calling Google's userinfo endpoint
+            user_info = validate_access_token(token)
             user_info["auth_type"] = "oauth"
+            logger.info(f"✅ OAuth 2.0 authentication successful for: {user_info['email']}")
         except Exception as e:
             logger.warning(f"OAuth verification failed: {e}")
-            raise HTTPException(status_code=401, detail="Invalid session")
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid or expired session. Please login again."
+            )
 
     # 3. Enforce Authorization (Domain check)
     if not oauth_manager.is_authorized(user_info):
@@ -557,8 +553,56 @@ def verify_auth(request: Request) -> dict:
     if not oauth_manager.check_rate_limit(user_info["email"]):
         logger.warning(f"Rate limit exceeded: {user_info['email']}")
         raise HTTPException(status_code=429, detail="Too many requests. Please wait 1 minute.")
-        
+
     return user_info
+
+
+def validate_access_token(access_token: str) -> dict:
+    """
+    Validate OAuth 2.0 Access Token by calling Google's userinfo endpoint.
+
+    Access Tokens CANNOT be verified locally like ID Tokens.
+    They must be validated by making a request to Google's userinfo endpoint.
+
+    Args:
+        access_token: The OAuth 2.0 Access Token to validate
+
+    Returns:
+        dict: User info with email, name, picture
+
+    Raises:
+        HTTPException: If token is invalid or expired
+    """
+    try:
+        import urllib.request
+        import json
+
+        # Call Google's userinfo endpoint
+        req = urllib.request.Request(
+            'https://www.googleapis.com/oauth2/v3/userinfo',
+            headers={'Authorization': f'Bearer {access_token}'}
+        )
+
+        with urllib.request.urlopen(req) as response:
+            if response.status == 200:
+                user_data = json.loads(response.read().decode('utf-8'))
+
+                return {
+                    "email": user_data.get("email"),
+                    "sub": user_data.get("sub"),
+                    "name": user_data.get("name", ""),
+                    "picture": user_data.get("picture", ""),
+                    "domain": user_data.get("email", "").split("@")[-1]
+                }
+            else:
+                raise ValueError(f"Token validation failed with status {response.status}")
+
+    except urllib.error.HTTPError as e:
+        logger.error(f"HTTP error validating token: {e.code} - {e.reason}")
+        raise HTTPException(status_code=401, detail="Invalid or expired access token")
+    except Exception as e:
+        logger.error(f"Error validating access token: {e}")
+        raise HTTPException(status_code=401, detail="Failed to validate access token")
 
 def get_current_user(request: Request) -> dict:
     """Unified authentication dependency for protected endpoints."""
@@ -597,6 +641,28 @@ async def health_check():
         "iap_enabled": "X-Goog-IAP-JWT-Assertion" in os.environ,
         "auth_enabled": oauth_manager is not None
     }
+
+@app.get("/api/v1/algorithms")
+async def list_algorithms(user: dict = Depends(get_current_user)):
+    """
+    List all available document classification algorithms.
+    """
+    try:
+        # Crear un DatabaseManager temporal para la tabla document_algorithms
+        algorithms_manager = DatabaseManager(
+            table_name="document_algorithms",
+            use_supabase=True
+        )
+        algorithms = algorithms_manager.find_all()
+        # Filtrar solo activos
+        active_algorithms = [alg for alg in algorithms if alg.get("is_active", True)]
+        return active_algorithms
+    except Exception as e:
+        logger.error(f"Failed to fetch algorithms: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch algorithms: {str(e)}"
+        )
 
 # Global Error Handler for Security (Anti-Leakage)
 @app.exception_handler(Exception)
