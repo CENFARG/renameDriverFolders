@@ -23,8 +23,11 @@ from contextlib import asynccontextmanager
 from pydantic import BaseModel
 import google.auth
 from google.oauth2 import service_account
-from google.oauth2.credentials import Credentials as OAuthCredentials  # OAuth user credentials
+from google.oauth2 import credentials as oauth2_credentials  # OAuth user credentials
 from google.cloud import storage
+import google_auth_httplib2
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
 # from google.cloud import secretmanager  # Imported below optionally
 from googleapiclient.discovery import build
 
@@ -256,14 +259,58 @@ def get_user_credentials(access_token: str, scope: str):
     - No refresh token is stored
     - Credentials are only used in memory
     """
-    return OAuthCredentials(
+    # Use google.oauth2.credentials.Credentials instead of OAuthCredentials
+    # to prevent automatic token refresh attempts
+    return oauth2_credentials.Credentials(
         token=access_token,
         scopes=[scope],
-        token_uri="https://oauth2.googleapis.com/token",
-        # client_id and client_secret not needed for access token usage
-        client_id="",
-        client_secret=""
+        # Disable token refresh - we don't have refresh_token
+        expiry=None,
+        token_uri=None,
+        client_id=None,
+        client_secret=None
     )
+
+
+def build_drive_service_with_credentials(credentials):
+    """
+    Build Drive service with custom HTTP request that injects Bearer token manually.
+
+    CRITICAL: google_auth_httplib2.AuthorizedHttp ALWAYS attempts to refresh
+    credentials on 401/403, regardless of how credentials are configured.
+
+    Solution: Create custom HttpRequest that manually injects the Bearer token
+    without using AuthorizedHttp at all.
+    """
+    import httplib2
+    from googleapiclient.http import HttpRequest
+
+    # Store the access token
+    access_token = credentials.token
+
+    logger.info(f"🔧 Building Drive service with manual Bearer token injection")
+    logger.info(f"🔧 Access token: {mask_access_token(access_token)}")
+
+    # Create custom HTTP object
+    http = httplib2.Http()
+
+    # Create a request builder that injects Bearer token manually
+    class TokenInjectorRequest(HttpRequest):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+
+        def add_credentials(self, credentials):
+            """Override to inject Bearer token manually without refresh logic."""
+            # Manually inject Authorization header
+            self.headers['Authorization'] = f'Bearer {access_token}'
+            logger.debug(f"🔑 Injected Bearer token into request")
+
+    # Build Drive service with standard HTTP (NOT AuthorizedHttp)
+    drive_service = build("drive", "v3", http=http,
+                          requestBuilder=TokenInjectorRequest)
+
+    logger.info("✅ Drive service built successfully (manual token injection)")
+    return drive_service
 
 
 def mask_access_token(token: str) -> str:
@@ -351,9 +398,21 @@ def process_job(
         # Create agent for this job using AgentFactory
         agent = agent_factory.create_agent_from_job_config(job_config)
         logger.info(f"Agent created for job '{job_name}'")
-        
-        # Initialize Drive service
-        drive_service = build("drive", "v3", credentials=credentials)
+
+        # ============================================================
+        # DEBUG: Verificar credenciales antes de crear Drive service
+        # ============================================================
+        logger.info(f"🔍 Credentials type: {type(credentials).__name__}")
+        logger.info(f"🔍 Credentials module: {type(credentials).__module__}")
+        logger.info(f"🔍 Credentials token: {mask_access_token(credentials.token) if hasattr(credentials, 'token') else 'NO TOKEN'}")
+        logger.info(f"🔍 Credentials scopes: {credentials.scopes if hasattr(credentials, 'scopes') else 'NO SCOPES'}")
+        logger.info(f"🔍 Credentials expiry: {credentials.expiry if hasattr(credentials, 'expiry') else 'NO EXPIRY'}")
+        logger.info(f"🔍 Credentials token_uri: {credentials.token_uri if hasattr(credentials, 'token_uri') else 'NO TOKEN_URI'}")
+        logger.info(f"🔍 Credentials client_id: {credentials.client_id if hasattr(credentials, 'client_id') else 'NO CLIENT_ID'}")
+        # ============================================================
+
+        # Initialize Drive service with custom HTTP transport (no auto-refresh)
+        drive_service = build_drive_service_with_credentials(credentials)
         storage_client = storage.Client(credentials=credentials)
         
         # Get target folder names
@@ -714,6 +773,22 @@ async def health_check():
     }
 
 
+@app.get("/debug/code")
+async def debug_code():
+    """
+    DEBUG: Return source code of critical functions to verify deployed code.
+    This endpoint allows us to check what code is actually running in production.
+    """
+    import inspect
+
+    return {
+        "function": "get_user_credentials",
+        "source": inspect.getsource(get_user_credentials),
+        "module": get_user_credentials.__module__,
+        "file": inspect.getfile(get_user_credentials)
+    }
+
+
 @app.post("/run-task")
 async def run_task(request: Request):
     """
@@ -724,15 +799,125 @@ async def run_task(request: Request):
     service account credentials (scheduled jobs).
 
     Security:
+    - OIDC token verification for Cloud Tasks authentication
+    - Only Cloud Tasks service account can invoke this endpoint
     - User credentials are used when available (manual jobs)
     - Service account fallback for scheduled jobs
     - Access tokens are masked in logs
     """
+    # ============================================================
+    # SECURITY: Verify OIDC token from Cloud Tasks
+    # ============================================================
+    auth_header = request.headers.get("Authorization")
+
+    if not auth_header:
+        logger.warning("🚨 SECURITY: Missing Authorization header")
+        raise HTTPException(
+            status_code=401,
+            detail="Missing Authorization header. This endpoint requires OIDC authentication from Cloud Tasks."
+        )
+
+    if not auth_header.startswith("Bearer "):
+        logger.warning(f"🚨 SECURITY: Invalid Authorization header format: {auth_header[:20]}...")
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid Authorization header format. Expected: Bearer <token>"
+        )
+
+    token = auth_header.split(" ")[1]
+
+    try:
+        # Verify OIDC token
+        expected_audience = os.environ.get("WORKER_URL")
+        if not expected_audience:
+            logger.error("🚨 SECURITY: WORKER_URL environment variable not set")
+            raise HTTPException(
+                status_code=500,
+                detail="Server configuration error: WORKER_URL not set"
+            )
+
+        logger.info(f"🔐 Verifying OIDC token with audience: {expected_audience}")
+
+        id_info = id_token.verify_oauth2_token(
+            token,
+            google_requests.Request(),
+            expected_audience
+        )
+
+        # Verify that the token is from the correct Cloud Tasks service account
+        expected_sa = "scheduler-trigger@cloud-functions-474716.iam.gserviceaccount.com"
+        token_email = id_info.get("email")
+
+        if token_email != expected_sa:
+            logger.warning(f"🚨 SECURITY: Unauthorized service account: {token_email} (expected: {expected_sa})")
+            raise HTTPException(
+                status_code=403,
+                detail=f"Unauthorized service account: {token_email}. Only Cloud Tasks service account can invoke this endpoint."
+            )
+
+        logger.info(f"✅ OIDC token verified successfully from: {token_email}")
+
+    except ValueError as e:
+        logger.error(f"🚨 SECURITY: Invalid OIDC token: {e}")
+        raise HTTPException(
+            status_code=401,
+            detail=f"Invalid OIDC token: {str(e)}"
+        )
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+    except Exception as e:
+        logger.error(f"🚨 SECURITY: Token verification error: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=401,
+            detail=f"Token verification failed: {str(e)}"
+        )
+
+    logger.info("=" * 60)
     logger.info("Task received from Cloud Tasks")
+
+    # ============================================================
+    # DEBUG: Capturar request body crudo ANTES de procesar
+    # ============================================================
+    try:
+        body_bytes = await request.body()
+        body_str = body_bytes.decode("utf-8")
+
+        logger.info(f"📦 Raw request body length: {len(body_str)} bytes")
+        logger.info(f"📦 Raw request body (first 500 chars): {body_str[:500]}")
+
+        import json
+        task_data = json.loads(body_str)
+
+        logger.info(f"📋 Parsed JSON keys: {list(task_data.keys())}")
+        logger.info(f"📋 Total fields in payload: {len(task_data)}")
+
+        if "user_credentials" in task_data:
+            logger.info(f"✅ user_credentials FOUND in payload")
+            creds = task_data["user_credentials"]
+            logger.info(f"   - Keys in user_credentials: {list(creds.keys()) if isinstance(creds, dict) else 'NOT A DICT'}")
+            if isinstance(creds, dict) and "access_token" in creds:
+                token = creds["access_token"]
+                logger.info(f"   - access_token length: {len(token)}")
+                logger.info(f"   - access_token prefix: {token[:20]}...")
+        else:
+            logger.info("❌ user_credentials NOT FOUND in payload")
+
+        if "access_token" in task_data:
+            logger.info(f"⚠️  DEPRECATED access_token field found (should be in user_credentials)")
+
+    except Exception as debug_e:
+        logger.error(f"DEBUG logging failed: {debug_e}")
+    # ============================================================
 
     try:
         payload = await request.json()
         task = TaskPayload(**payload)
+
+        logger.info(f"🔧 TaskPayload deserialized successfully")
+        logger.info(f"   - task.user_credentials: {task.user_credentials is not None}")
+        if task.user_credentials:
+            logger.info(f"   - task.user_credentials.email: {task.user_credentials.email}")
     except Exception as e:
         logger.error(f"Invalid task payload: {e}")
         raise HTTPException(status_code=400, detail=f"Invalid payload: {e}")
@@ -779,20 +964,34 @@ async def run_task(request: Request):
         
         if task.execution_id:
             try:
-                executions_manager.update("id", task.execution_id, {"status": "processing"})
-                logger.info(f"Execution {task.execution_id} status updated: processing")
+                logger.info(f"🔄 ATTEMPTING status update to 'processing' for {task.execution_id}")
+                update_result = executions_manager.update("id", task.execution_id, {"status": "processing"})
+                logger.info(f"✅ Status updated to 'processing' for {task.execution_id}. Result: {update_result}")
             except Exception as e:
-                logger.warning(f"Failed to update execution status (non-fatal): {e}")
+                logger.error(f"❌ FAILED to update status to 'processing' for {task.execution_id}: {e}", exc_info=True)
+                logger.error(f"executions_manager type: {type(executions_manager)}")
+                logger.error(f"executions_manager table: {executions_manager.table_name if hasattr(executions_manager, 'table_name') else 'unknown'}")
 
         try:
             result = process_job(job_config, task.folder_id, credentials)
             
             if task.execution_id:
-                executions_manager.update("id", task.execution_id, {
-                    "status": "completed" if result.get("status") == "success" else "failed",
-                    "details": f"Processed {result.get('stats', {}).get('renamed', 0)} files. Folder: {task.folder_id}"
-                })
-            
+                final_status = "completed" if result.get("status") == "success" else "failed"
+                final_details = f"Processed {result.get('stats', {}).get('files_processed', 0)} files, Renamed {result.get('stats', {}).get('files_renamed', 0)} files. Folder: {task.folder_id}"
+
+                logger.info(f"🔄 ATTEMPTING status update to '{final_status}' for {task.execution_id}")
+                logger.info(f"📊 Stats: {result.get('stats', {})}")
+
+                try:
+                    update_result = executions_manager.update("id", task.execution_id, {
+                        "status": final_status,
+                        "details": final_details,
+                        "stats": result.get('stats', {})
+                    })
+                    logger.info(f"✅ Status updated to '{final_status}' for {task.execution_id}. Result: {update_result}")
+                except Exception as e:
+                    logger.error(f"❌ FAILED to update status to '{final_status}' for {task.execution_id}: {e}", exc_info=True)
+
             return result
         except Exception as e:
             logger.error(f"Error in process_job: {e}")
