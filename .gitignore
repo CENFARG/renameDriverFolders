@@ -18,6 +18,7 @@ __pycache__/
 credentials.json
 drive_changes_token.json
 credencial_b64.txt
+.credentials.backup.*.tar.gz
 
 # Logs
 *.log
