@@ -5,6 +5,7 @@ import { Observable } from 'rxjs';
 import { AuthService } from './services/auth.service';
 import { ApiService } from './services/api.service';
 import { User, Job } from './models/job.model';
+import { environment } from '../environments/environment';
 
 declare const google: any;
 declare const gapi: any;
