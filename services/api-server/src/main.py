@@ -212,7 +212,13 @@ try:
     oauth_client_id = get_secret("oauth-client-id")
     if oauth_client_id:
         allowed_domains = get_secret("oauth-allowed-domains").split(",")
-        allowed_emails = get_secret("oauth-allowed-emails", "").split(",")
+
+        # Try to get allowed_emails, but handle if secret doesn't exist
+        try:
+            allowed_emails = get_secret("oauth-allowed-emails").split(",")
+        except Exception:
+            # Secret doesn't exist or other error - default to empty list
+            allowed_emails = []
 
         oauth_manager = OAuthSecurityManager(
             client_id=oauth_client_id,
@@ -222,7 +228,7 @@ try:
         )
         logger.info(f"OAuth Security Manager initialized:")
         logger.info(f"  - Domains: {allowed_domains}")
-        logger.info(f"  - Specific emails: {allowed_emails}")
+        logger.info(f"  - Specific emails: {allowed_emails if allowed_emails else 'None'}")
     else:
         logger.warning("OAuth not configured - client_id not found")
 except Exception as e:
