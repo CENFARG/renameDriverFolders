@@ -91,6 +91,15 @@ export class ApiService {
         );
     }
 
+    getAlgorithms(): Observable<any[]> {
+        const url = `${this.apiUrl}/api/v1/algorithms`;
+        console.log('🌐 GET Request URL (algorithms):', url);
+        const headers = this.getAuthHeaders();
+        return this.http.get<any[]>(url, { headers }).pipe(
+            tap(() => console.log('✅ GET Request completed (algorithms):', url))
+        );
+    }
+
     private getAuthHeaders(): HttpHeaders {
         const token = this.authService.getToken();
         return new HttpHeaders({
