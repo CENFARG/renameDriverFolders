@@ -29,6 +29,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   isAdmin = false;
   jobs: any[] = [];
   auditLogs: any[] = [];
+  predefinedAlgorithms: any[] = [];
 
   private readonly ADMIN_EMAILS = [
     'cutignolad@estudioanc.com.ar',
@@ -55,7 +56,15 @@ export class AppComponent implements OnInit, AfterViewInit {
       if (user) {
         this.isAdmin = this.ADMIN_EMAILS.includes(user.email);
         this.loadJobs();
-        if (this.isAdmin) this.loadAuditLogs();
+        // loadAlgorithms() is called inside loadJobs() to ensure jobs are loaded first
+        if (this.isAdmin) {
+          this.loadAuditLogs();
+          // Si ya estamos en la vista de audit, recargar para asegurar datos frescos
+          if (this.view === 'audit') {
+            console.log('🔄 Already in audit view, refreshing logs...');
+            setTimeout(() => this.loadAuditLogs(), 500);
+          }
+        }
         // Request token for picker
         this.requestAccessToken();
       } else {
@@ -92,7 +101,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     try {
       const tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: '702567224563-74i4orff38l8afk39j4hsc411mm3d1ma.apps.googleusercontent.com',
-        scope: 'https://www.googleapis.com/auth/drive.readonly',
+        scope: 'https://www.googleapis.com/auth/drive',
         callback: (response: any) => {
           if (response.access_token) {
             this.accessToken = response.access_token;
@@ -122,10 +131,16 @@ export class AppComponent implements OnInit, AfterViewInit {
       .setCallback((data: any) => {
         if (data.action === google.picker.Action.PICKED) {
           const doc = data.docs[0];
+          console.log('📂 Picker returned doc.id:', doc.id);
+          console.log('📂 ID length:', doc.id.length);
+          console.log('📂 ID starts with:', doc.id.substring(0, 5));
+
           if (target === 'dashboard') {
             this.folderId = doc.id;
+            console.log('✅ Dashboard folderId set to:', this.folderId);
           } else {
             this.currentJob.source_folder_id = doc.id;
+            console.log('✅ Config source_folder_id set to:', this.currentJob.source_folder_id);
           }
           this.cdr.detectChanges();
         }
@@ -152,21 +167,58 @@ export class AppComponent implements OnInit, AfterViewInit {
   setView(view: string): void {
     this.view = view;
     if (view === 'dashboard') this.loadJobs();
-    if (view === 'audit') this.loadAuditLogs();
+    if (view === 'audit') {
+      if (this.isAdmin) {
+        this.loadAuditLogs();
+      } else {
+        console.warn('⚠️ User is not admin, cannot load audit logs');
+        this.auditLogs = [];
+      }
+    }
     if (view === 'config') this.loadJobs();
   }
 
   loadJobs(): void {
     this.apiService.listJobs().subscribe({
-      next: (res) => this.jobs = res.jobs,
+      next: (res) => {
+        this.jobs = res.jobs;
+        // Combine with predefined algorithms after jobs are loaded
+        this.loadAlgorithms();
+      },
       error: (e) => console.error('Failed to load jobs', e)
     });
   }
 
+  loadAlgorithms(): void {
+    this.apiService.getAlgorithms().subscribe({
+      next: (algorithms) => {
+        console.log('📚 Loaded', algorithms.length, 'predefined algorithms from Supabase');
+        // Store predefined algorithms separately
+        this.predefinedAlgorithms = algorithms;
+      },
+      error: (e) => {
+        console.warn('⚠️ Failed to load predefined algorithms:', e);
+        this.predefinedAlgorithms = [];
+      }
+    });
+  }
+
+  get allJobs(): any[] {
+    // Combine user jobs with predefined algorithms
+    return [...this.jobs, ...this.predefinedAlgorithms];
+  }
+
   loadAuditLogs(): void {
+    console.log('🔄 Loading audit logs...');
     this.apiService.getAuditLogs().subscribe({
-      next: (res) => this.auditLogs = res.logs || [],
-      error: (e) => console.error('Failed to load audit logs', e)
+      next: (res) => {
+        this.auditLogs = res.logs || [];
+        console.log(`✅ Loaded ${this.auditLogs.length} audit logs`);
+      },
+      error: (e) => {
+        console.error('❌ Failed to load audit logs:', e);
+        this.auditLogs = [];
+      }
     });
   }
 
@@ -184,10 +236,16 @@ export class AppComponent implements OnInit, AfterViewInit {
     this.result = '';
     this.cdr.detectChanges();
 
+    console.log('🚀 Submitting job with folder_id:', this.folderId);
+    console.log('🚀 folder_id length:', this.folderId.length);
+    console.log('🚀 folder_id starts with:', this.folderId.substring(0, 5));
+
     const job = {
       folder_id: this.folderId,
       job_type: this.jobType
     };
+
+    console.log('📦 Job payload:', job);
 
     this.apiService.submitJob(job).subscribe({
       next: (response) => {
