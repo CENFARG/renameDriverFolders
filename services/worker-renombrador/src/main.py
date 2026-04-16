@@ -274,16 +274,14 @@ def get_user_credentials(access_token: str, scope: str):
 
 def build_drive_service_with_credentials(credentials):
     """
-    Build Drive service with custom HTTP request that injects Bearer token manually.
+    Build Drive service with custom HTTP object that injects Bearer token manually.
 
     CRITICAL: google_auth_httplib2.AuthorizedHttp ALWAYS attempts to refresh
     credentials on 401/403, regardless of how credentials are configured.
 
-    Solution: Create custom HttpRequest that manually injects the Bearer token
-    without using AuthorizedHttp at all.
+    Solution: Create custom Http object that adds Authorization header to every request.
     """
     import httplib2
-    from googleapiclient.http import HttpRequest
 
     # Store the access token
     access_token = credentials.token
@@ -291,23 +289,24 @@ def build_drive_service_with_credentials(credentials):
     logger.info(f"🔧 Building Drive service with manual Bearer token injection")
     logger.info(f"🔧 Access token: {mask_access_token(access_token)}")
 
-    # Create custom HTTP object
-    http = httplib2.Http()
+    # Create custom HTTP object that injects Bearer token
+    class TokenInjectorHttp(httplib2.Http):
+        def request(self, uri, method="GET", body=None, headers=None,
+                   redirections=1, connection_type=None):
+            # Inject Authorization header into every request
+            if headers is None:
+                headers = {}
+            headers['Authorization'] = f'Bearer {access_token}'
 
-    # Create a request builder that injects Bearer token manually
-    class TokenInjectorRequest(HttpRequest):
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
+            logger.debug(f"🔑 Injected Bearer token into {method} request to {uri}")
 
-        def add_credentials(self, credentials):
-            """Override to inject Bearer token manually without refresh logic."""
-            # Manually inject Authorization header
-            self.headers['Authorization'] = f'Bearer {access_token}'
-            logger.debug(f"🔑 Injected Bearer token into request")
+            # Call parent request with updated headers
+            return super().request(uri, method, body, headers,
+                                  redirections, connection_type)
 
-    # Build Drive service with standard HTTP (NOT AuthorizedHttp)
-    drive_service = build("drive", "v3", http=http,
-                          requestBuilder=TokenInjectorRequest)
+    # Build Drive service with custom HTTP object
+    http = TokenInjectorHttp()
+    drive_service = build("drive", "v3", http=http)
 
     logger.info("✅ Drive service built successfully (manual token injection)")
     return drive_service
