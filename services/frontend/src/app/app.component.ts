@@ -202,11 +202,11 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     if (view === 'audit') {
       if (this.isAdmin) {
         this.loadAuditLogs();
-        // Auto-refresh audit logs every 10 seconds while in audit view
+        // Auto-refresh audit logs every 10 minutes while in audit view (600000ms)
         this.auditLogsInterval = setInterval(() => {
           this.loadAuditLogs();
-        }, 10000);
-        console.log('✅ Auto-refresh enabled for audit logs (every 10 seconds)');
+        }, 600000); // 10 minutes instead of 10 seconds
+        console.log('✅ Auto-refresh enabled for audit logs (every 10 minutes)');
       } else {
         console.warn('⚠️ User is not admin, cannot load audit logs');
         this.auditLogs = [];
@@ -326,7 +326,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     };
 
     console.log('📦 Job payload:', job);
-    console.log('🔑 Including OAuth access_token for Worker:', this.accessToken.substring(0, 20) + '...');
+    console.log('🔑 Including OAuth access_token for Worker: [MASKED]');
 
     this.apiService.submitJob(job, this.accessToken).subscribe({
       next: (response) => {
