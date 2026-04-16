@@ -247,6 +247,24 @@ export class AppComponent implements OnInit, AfterViewInit {
   submitJob(): void {
     if (!this.folderId) return;
 
+    // Ensure we have an OAuth Access Token before submitting
+    if (!this.accessToken) {
+      console.warn('⚠️ No OAuth Access Token available. Requesting one...');
+      this.result = 'error';
+      this.resultMessage = 'No se ha podido obtener el token de acceso de Google. Por favor, intenta de nuevo.';
+      this.cdr.detectChanges();
+
+      // Try to request the token
+      this.requestAccessToken();
+
+      // Clear error after 5 seconds
+      setTimeout(() => {
+        this.result = '';
+        this.cdr.detectChanges();
+      }, 5000);
+      return;
+    }
+
     this.isSubmitting = true;
     this.result = '';
     this.cdr.detectChanges();
@@ -261,8 +279,9 @@ export class AppComponent implements OnInit, AfterViewInit {
     };
 
     console.log('📦 Job payload:', job);
+    console.log('🔑 Including OAuth access_token for Worker:', this.accessToken.substring(0, 20) + '...');
 
-    this.apiService.submitJob(job).subscribe({
+    this.apiService.submitJob(job, this.accessToken).subscribe({
       next: (response) => {
         this.result = 'success';
         this.resultMessage = response.message || 'Tarea encolada correctamente';
