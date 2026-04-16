@@ -39,6 +39,8 @@ export class AppComponent implements OnInit, AfterViewInit {
 
   private accessToken: string | null = null;
   private pickerApiLoaded = false;
+  private isLoadingAuditLogs = false;
+  private auditLogsTimeout: any = null;
 
   constructor(
     private authService: AuthService,
@@ -60,11 +62,6 @@ export class AppComponent implements OnInit, AfterViewInit {
         // loadAlgorithms() is called inside loadJobs() to ensure jobs are loaded first
         if (this.isAdmin) {
           this.loadAuditLogs();
-          // Si ya estamos en la vista de audit, recargar para asegurar datos frescos
-          if (this.view === 'audit') {
-            console.log('🔄 Already in audit view, refreshing logs...');
-            setTimeout(() => this.loadAuditLogs(), 500);
-          }
         }
         // Request token for picker
         this.requestAccessToken();
@@ -210,17 +207,34 @@ export class AppComponent implements OnInit, AfterViewInit {
   }
 
   loadAuditLogs(): void {
-    console.log('🔄 Loading audit logs...');
-    this.apiService.getAuditLogs().subscribe({
-      next: (res) => {
-        this.auditLogs = res.logs || [];
-        console.log(`✅ Loaded ${this.auditLogs.length} audit logs`);
-      },
-      error: (e) => {
-        console.error('❌ Failed to load audit logs:', e);
-        this.auditLogs = [];
-      }
-    });
+    // Debounce: Cancel previous load if pending
+    if (this.auditLogsTimeout) {
+      clearTimeout(this.auditLogsTimeout);
+    }
+
+    // Skip if already loading
+    if (this.isLoadingAuditLogs) {
+      console.log('⏸️ Audit logs already loading, skipping duplicate request');
+      return;
+    }
+
+    this.auditLogsTimeout = setTimeout(() => {
+      console.log('🔄 Loading audit logs...');
+      this.isLoadingAuditLogs = true;
+
+      this.apiService.getAuditLogs().subscribe({
+        next: (res) => {
+          this.auditLogs = res.logs || [];
+          console.log(`✅ Loaded ${this.auditLogs.length} audit logs`);
+        },
+        error: (e) => {
+          console.error('❌ Failed to load audit logs:', e);
+          this.auditLogs = [];
+        }
+      }).add(() => {
+        this.isLoadingAuditLogs = false;
+      });
+    }, 500); // 500ms debounce to avoid rapid calls
   }
 
   initializeLoginButton(): void {

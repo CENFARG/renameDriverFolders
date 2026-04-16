@@ -564,8 +564,8 @@ def verify_auth(request: Request) -> dict:
         logger.warning(f"Access denied for domain: {user_info.get('domain')}")
         raise HTTPException(status_code=403, detail="Unauthorized domain access")
 
-    # 4. Enforce Rate Limiting
-    if not oauth_manager.check_rate_limit(user_info["email"]):
+    # 4. Enforce Rate Limiting (increased from 10 to 30 for frontend refresh patterns)
+    if not oauth_manager.check_rate_limit(user_info["email"], max_requests=30):
         logger.warning(f"Rate limit exceeded: {user_info['email']}")
         raise HTTPException(status_code=429, detail="Too many requests. Please wait 1 minute.")
         
