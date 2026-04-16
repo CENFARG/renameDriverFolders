@@ -1,4 +1,4 @@
-import { Component, OnInit, AfterViewInit, ElementRef, ViewChild, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, AfterViewInit, OnDestroy, ElementRef, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Observable } from 'rxjs';
@@ -17,7 +17,7 @@ declare const gapi: any;
   templateUrl: './app.component.html',
   styles: []
 })
-export class AppComponent implements OnInit, AfterViewInit {
+export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('googleButton') googleButton!: ElementRef;
 
   user$: Observable<any | null>;
@@ -41,6 +41,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   private pickerApiLoaded = false;
   private isLoadingAuditLogs = false;
   private auditLogsTimeout: any = null;
+  private auditLogsInterval: any = null;
 
   constructor(
     private authService: AuthService,
@@ -174,12 +175,38 @@ export class AppComponent implements OnInit, AfterViewInit {
     setTimeout(() => this.initializeLoginButton(), 100);
   }
 
+  ngOnDestroy(): void {
+    // Clean up audit logs refresh interval
+    if (this.auditLogsInterval) {
+      clearInterval(this.auditLogsInterval);
+      this.auditLogsInterval = null;
+    }
+
+    // Clean up audit logs timeout
+    if (this.auditLogsTimeout) {
+      clearTimeout(this.auditLogsTimeout);
+      this.auditLogsTimeout = null;
+    }
+  }
+
   setView(view: string): void {
     this.view = view;
+
+    // Clear any existing audit refresh interval
+    if (this.auditLogsInterval) {
+      clearInterval(this.auditLogsInterval);
+      this.auditLogsInterval = null;
+    }
+
     if (view === 'dashboard') this.loadJobs();
     if (view === 'audit') {
       if (this.isAdmin) {
         this.loadAuditLogs();
+        // Auto-refresh audit logs every 10 seconds while in audit view
+        this.auditLogsInterval = setInterval(() => {
+          this.loadAuditLogs();
+        }, 10000);
+        console.log('✅ Auto-refresh enabled for audit logs (every 10 seconds)');
       } else {
         console.warn('⚠️ User is not admin, cannot load audit logs');
         this.auditLogs = [];
