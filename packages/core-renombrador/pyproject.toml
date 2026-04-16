@@ -12,6 +12,7 @@ authors = [
 dependencies = [
     "google-api-python-client",
     "google-cloud-storage",
+    "google-cloud-secret-manager>=2.20.0",  # Secret Manager for production config
     "google-auth",
     "google-auth-httplib2",
     "google-generativeai",

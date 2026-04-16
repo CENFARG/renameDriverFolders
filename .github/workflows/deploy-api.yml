@@ -1,0 +1,63 @@
+name: Deploy API Server
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/api-server/**'
+      - '.github/workflows/deploy-api.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'services/api-server/**'
+      - '.github/workflows/deploy-api.yml'
+
+env:
+  PROJECT_ID: cloud-functions-474716
+  SERVICE_NAME: renombradorarchivosgdrive-api-server-v2
+  REGION: us-central1
+  IMAGE_NAME: renombradorarchivosgdrive-api-server-v2
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Setup Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker to use gcloud as a credential helper
+        run: gcloud auth configure-docker
+
+      - name: Build Docker image
+        run: |
+          docker build -t gcr.io/${{ env.PROJECT_ID }}/${{ env.IMAGE_NAME }}:latest \
+            -f services/api-server/Dockerfile \
+            services/api-server
+
+      - name: Push Docker image
+        if: github.event_name == 'push'
+        run: docker push gcr.io/${{ env.PROJECT_ID }}/${{ env.IMAGE_NAME }}:latest
+
+      - name: Deploy to Cloud Run
+        if: github.event_name == 'push'
+        run: |
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image gcr.io/${{ env.PROJECT_ID }}/${{ env.IMAGE_NAME }}:latest \
+            --platform managed \
+            --region ${{ env.REGION }} \
+            --allow-unauthenticated
+
+      - name: PR Build Success
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "✅ API Server build successful! Ready to deploy."
+          echo "This PR will be deployed when merged to main."

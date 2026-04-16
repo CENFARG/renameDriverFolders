@@ -2,12 +2,33 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
+      - '--no-cache'
       - '-t'
       - 'gcr.io/$PROJECT_ID/renombradorarchivosgdrive-api-server-v2:latest'
       - '-f'
       - 'services/api-server/Dockerfile.build'
       - '.'
     timeout: 1200s
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'renombradorarchivosgdrive-api-server-v2'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/renombradorarchivosgdrive-api-server-v2:latest'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--max-instances'
+      - '1'
+      - '--service-account'
+      - '702567224563-compute@developer.gserviceaccount.com'
+      - '--set-env-vars'
+      - 'GCP_PROJECT=$PROJECT_ID,GCP_LOCATION=us-central1,TASKS_QUEUE=document-processing-queue,WORKER_URL=https://renombradorarchivosgdrive-worker-v2-702567224563.us-central1.run.app,WORKER_SERVICE_ACCOUNT=702567224563-compute@developer.gserviceaccount.com,USE_SUPABASE=true'
 
 images:
   - 'gcr.io/$PROJECT_ID/renombradorarchivosgdrive-api-server-v2:latest'

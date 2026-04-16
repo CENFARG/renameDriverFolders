@@ -13,4 +13,4 @@ google-auth-httplib2>=0.1.1
 google-cloud-storage>=2.13.0
 
 # The core_renombrador package (installed via Dockerfile)
-# Includes: agno, google-cloud-vision, pdf2image, Pillow, supabase, etc.
+# Includes: agno, google-cloud-vision, google-cloud-secret-manager, pdf2image, Pillow, supabase, etc.

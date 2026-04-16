@@ -10,24 +10,34 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copiar e instalar core package primero
-COPY packages/core-renombrador /app/packages/core-renombrador
-RUN pip install --no-cache-dir /app/packages/core-renombrador
+# Crear virtual environment
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
-# Copiar requirements del worker
+# Copiar requirements y core package
+COPY packages/core-renombrador /app/packages/core-renombrador
 COPY services/worker-renombrador/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+
+# Instalar todo en un solo comando para resolver dependencias correctamente
+RUN pip install --no-cache-dir /app/packages/core-renombrador -r requirements.txt
+
+# Crear usuario no-root
+RUN adduser --system --group appuser
+RUN chown -R appuser:appuser /app /opt/venv
 
 # Copiar código del worker
 COPY services/worker-renombrador/src ./src
 COPY services/worker-renombrador/config ./config
-COPY services/worker-renombrador/data ./data
 
-# Usuario no-root
-RUN adduser --system --group appuser
-RUN chown -R appuser:appuser /app
+# Limpiar archivos Python compilados para asegurar código fresco
+RUN find /app/src -type f -name "*.pyc" -delete && \
+    find /app/src -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+
+RUN mkdir -p /app/data && chown -R appuser:appuser /app
+
+# Switch al usuario no-root
 USER appuser
 
 EXPOSE 8080
 
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["/opt/venv/bin/python", "-m", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8080"]

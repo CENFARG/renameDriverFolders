@@ -5,253 +5,42 @@ import { Observable } from 'rxjs';
 import { AuthService } from './services/auth.service';
 import { ApiService } from './services/api.service';
 import { User, Job } from './models/job.model';
+import { environment } from '../environments/environment';
+
+declare const google: any;
+declare const gapi: any;
 
 @Component({
   selector: 'app-root',
   standalone: true,
   imports: [CommonModule, FormsModule],
-  template: `
-    <div class="app-container">
-      <!-- Login View -->
-      <div *ngIf="!(user$ | async)" class="login-container">
-        <div class="login-card">
-          <h1>📂 Renovador de Carpetas</h1>
-          <p>Renombra archivos automáticamente usando IA</p>
-          <div #googleButton class="google-button"></div>
-        </div>
-      </div>
-
-      <!-- Dashboard View -->
-      <div *ngIf="user$ | async as user" class="dashboard-container">
-        <header class="header">
-          <h1>📂 Renovador de Carpetas</h1>
-          <div class="user-info">
-            <img [src]="user.picture" alt="User" class="user-avatar">
-            <span>{{user.email}}</span>
-            <button (click)="signOut()" class="btn-secondary">Cerrar Sesión</button>
-          </div>
-        </header>
-
-        <main class="main-content">
-          <div class="job-form-card">
-            <h2>Procesar Carpeta</h2>
-            <form (ngSubmit)="submitJob()">
-              <div class="form-group">
-                <label for="folderId">ID de Carpeta de Google Drive</label>
-                <input 
-                  type="text" 
-                  id="folderId" 
-                  [(ngModel)]="folderId" 
-                  name="folderId"
-                  placeholder="Ej: 1ABC-123xyz..."
-                  required>
-              </div>
-              
-              <div class="form-group">
-                <label for="jobType">Tipo de Trabajo</label>
-                <select id="jobType" [(ngModel)]="jobType" name="jobType">
-                  <option value="generic">Genérico</option>
-                  <option value="invoice">Facturas</option>
-                  <option value="report">Reportes</option>
-                </select>
-              </div>
-
-              <button type="submit" class="btn-primary" [disabled]="isSubmitting">
-                {{isSubmitting ? 'Procesando...' : 'Procesar Carpeta'}}
-              </button>
-            </form>
-
-            <div *ngIf="result" [class]="resultClass" class="result-message">
-              {{result}}
-            </div>
-          </div>
-        </main>
-      </div>
-    </div>
-  `,
-  styles: [`
-    .app-container {
-      min-height: 100vh;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    }
-
-    .login-container {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-    }
-
-    .login-card {
-      background: white;
-      padding: 3rem;
-      border-radius: 12px;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-      text-align: center;
-      max-width: 400px;
-    }
-
-    .login-card h1 {
-      color: #667eea;
-      margin-bottom: 1rem;
-    }
-
-    .login-card p {
-      color: #666;
-      margin-bottom: 2rem;
-    }
-
-    .google-button {
-      display: flex;
-      justify-content: center;
-    }
-
-    .dashboard-container {
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .header {
-      background: white;
-      padding: 1rem 2rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-
-    .header h1 {
-      color: #667eea;
-      margin: 0;
-      font-size: 1.5rem;
-    }
-
-    .user-info {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-    }
-
-    .user-avatar {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-    }
-
-    .main-content {
-      flex: 1;
-      padding: 2rem;
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
-    }
-
-    .job-form-card {
-      background: white;
-      padding: 2rem;
-      border-radius: 12px;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-      width: 100%;
-      max-width: 600px;
-    }
-
-    .job-form-card h2 {
-      color: #333;
-      margin-bottom: 1.5rem;
-    }
-
-    .form-group {
-      margin-bottom: 1.5rem;
-    }
-
-    .form-group label {
-      display: block;
-      margin-bottom: 0.5rem;
-      color: #555;
-      font-weight: 500;
-    }
-
-    .form-group input,
-    .form-group select {
-      width: 100%;
-      padding: 0.75rem;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      font-size: 1rem;
-      box-sizing: border-box;
-    }
-
-    .form-group input:focus,
-    .form-group select:focus {
-      outline: none;
-      border-color: #667eea;
-    }
-
-    .btn-primary {
-      background: #667eea;
-      color: white;
-      border: none;
-      padding: 0.75rem 2rem;
-      border-radius: 6px;
-      font-size: 1rem;
-      cursor: pointer;
-      width: 100%;
-      transition: background 0.3s;
-    }
-
-    .btn-primary:hover:not(:disabled) {
-      background: #5568d3;
-    }
-
-    .btn-primary:disabled {
-      background: #ccc;
-      cursor: not-allowed;
-    }
-
-    .btn-secondary {
-      background: #ef4444;
-      color: white;
-      border: none;
-      padding: 0.5rem 1rem;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: background 0.3s;
-    }
-
-    .btn-secondary:hover {
-      background: #dc2626;
-    }
-
-    .result-message {
-      margin-top: 1rem;
-      padding: 1rem;
-      border-radius: 6px;
-      font-weight: 500;
-    }
-
-    .success {
-      background: #d1fae5;
-      color: #065f46;
-      border: 1px solid #6ee7b7;
-    }
-
-    .error {
-      background: #fee2e2;
-      color: #991b1b;
-      border: 1px solid #fecaca;
-    }
-  `]
+  templateUrl: './app.component.html',
+  styles: []
 })
 export class AppComponent implements OnInit, AfterViewInit {
   @ViewChild('googleButton') googleButton!: ElementRef;
 
-  user$: Observable<User | null>;
+  user$: Observable<any | null>;
   folderId = '';
   jobType = 'generic';
   isSubmitting = false;
   result = '';
-  resultClass = '';
+  resultMessage = '';
+  view = 'dashboard';
+  isAdmin = false;
+  jobs: any[] = [];
+  auditLogs: any[] = [];
+  predefinedAlgorithms: any[] = [];
+
+  private readonly ADMIN_EMAILS = [
+    'cutignolad@estudioanc.com.ar',
+    'gonzalo.f.recalde@gmail.com'
+  ];
+
+  private accessToken: string | null = null;
+  private pickerApiLoaded = false;
+  private isLoadingAuditLogs = false;
+  private auditLogsTimeout: any = null;
 
   constructor(
     private authService: AuthService,
@@ -263,87 +52,416 @@ export class AppComponent implements OnInit, AfterViewInit {
 
   ngOnInit(): void {
     this.authService.initializeGoogleSignIn();
+    this.loadPickerApi();
 
-    // Subscribe to user changes to handle re-rendering of login button
     this.user$.subscribe(user => {
       console.log('👤 User state changed:', user ? user.email : 'Logged out');
-      if (!user) {
-        // Use a small timeout to ensure DOM is ready after logout
+      if (user) {
+        this.isAdmin = this.ADMIN_EMAILS.includes(user.email);
+        this.loadJobs();
+        // loadAlgorithms() is called inside loadJobs() to ensure jobs are loaded first
+        if (this.isAdmin) {
+          this.loadAuditLogs();
+        }
+        // Request token for picker
+        this.requestAccessToken();
+      } else {
+        this.isAdmin = false;
+        this.view = 'dashboard';
         setTimeout(() => this.initializeLoginButton(), 100);
       }
     });
+  }
+
+  loadPickerApi(): void {
+    const script = document.createElement('script');
+    script.src = 'https://apis.google.com/js/api.js';
+    script.onload = () => {
+      gapi.load('picker', () => {
+        this.pickerApiLoaded = true;
+        console.log('✅ Google Picker API loaded');
+      });
+    };
+    document.body.appendChild(script);
+  }
+
+  requestAccessToken(retryCount = 0): void {
+    if (typeof google === 'undefined' || !google.accounts) {
+      if (retryCount < 5) {
+        console.warn(`⚠️ Google Identity Services not ready. Retrying... (${retryCount + 1}/5)`);
+        setTimeout(() => this.requestAccessToken(retryCount + 1), 1000);
+      } else {
+        console.error('❌ Google Identity Services failed to load after 5 retries.');
+      }
+      return;
+    }
+
+    try {
+      const tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: '702567224563-74i4orff38l8afk39j4hsc411mm3d1ma.apps.googleusercontent.com',
+        scope: 'https://www.googleapis.com/auth/drive',
+        callback: (response: any) => {
+          if (response.access_token) {
+            this.accessToken = response.access_token;
+            console.log('✅ Access Token acquired for Picker');
+          }
+        },
+      });
+      tokenClient.requestAccessToken({ prompt: '' });
+    } catch (e) {
+      console.error('Error initializing token client:', e);
+    }
+  }
+
+  openPicker(target: 'dashboard' | 'config'): void {
+    if (!this.pickerApiLoaded || !this.accessToken) {
+      this.requestAccessToken();
+      return;
+    }
+
+    const view = new google.picker.DocsView(google.picker.ViewId.FOLDERS)
+      .setSelectFolderEnabled(true)
+      .setMimeTypes('application/vnd.google-apps.folder');
+
+    const pickerBuilder = new google.picker.PickerBuilder()
+      .addView(view)
+      .setOAuthToken(this.accessToken)
+      .setCallback((data: any) => {
+        if (data.action === google.picker.Action.PICKED) {
+          const doc = data.docs[0];
+          console.log('📂 Picker returned doc.id:', doc.id);
+          console.log('📂 ID length:', doc.id.length);
+          console.log('📂 ID starts with:', doc.id.substring(0, 5));
+
+          if (target === 'dashboard') {
+            this.folderId = doc.id;
+            console.log('✅ Dashboard folderId set to:', this.folderId);
+          } else {
+            this.currentJob.source_folder_id = doc.id;
+            console.log('✅ Config source_folder_id set to:', this.currentJob.source_folder_id);
+          }
+          this.cdr.detectChanges();
+        }
+      });
+
+    // Agregar API key si está configurada (elimina mensaje "Solo para desarrolladores")
+    // @ts-ignore - googleApiKey es una propiedad custom del environment
+    if (environment.googleApiKey) {
+      // @ts-ignore
+      pickerBuilder.setDeveloperKey(environment.googleApiKey);
+      console.log('✅ Using Google API Key for Picker (production mode)');
+    } else {
+      console.log('⚠️ No Google API Key configured - Picker may show developer warning');
+    }
+
+    const picker = pickerBuilder.build();
+    picker.setVisible(true);
   }
 
   ngAfterViewInit(): void {
     setTimeout(() => this.initializeLoginButton(), 100);
   }
 
+  setView(view: string): void {
+    this.view = view;
+    if (view === 'dashboard') this.loadJobs();
+    if (view === 'audit') {
+      if (this.isAdmin) {
+        this.loadAuditLogs();
+      } else {
+        console.warn('⚠️ User is not admin, cannot load audit logs');
+        this.auditLogs = [];
+      }
+    }
+    if (view === 'config') this.loadJobs();
+  }
+
+  loadJobs(): void {
+    this.apiService.listJobs().subscribe({
+      next: (res) => {
+        this.jobs = res.jobs;
+        // Combine with predefined algorithms after jobs are loaded
+        this.loadAlgorithms();
+      },
+      error: (e) => console.error('Failed to load jobs', e)
+    });
+  }
+
+  loadAlgorithms(): void {
+    this.apiService.getAlgorithms().subscribe({
+      next: (algorithms) => {
+        console.log('📚 Loaded', algorithms.length, 'predefined algorithms from Supabase');
+        // Store predefined algorithms separately
+        this.predefinedAlgorithms = algorithms;
+      },
+      error: (e) => {
+        console.warn('⚠️ Failed to load predefined algorithms:', e);
+        this.predefinedAlgorithms = [];
+      }
+    });
+  }
+
+  get allJobs(): any[] {
+    // Combine user jobs with predefined algorithms
+    return [...this.jobs, ...this.predefinedAlgorithms];
+  }
+
+  loadAuditLogs(): void {
+    // Debounce: Cancel previous load if pending
+    if (this.auditLogsTimeout) {
+      clearTimeout(this.auditLogsTimeout);
+    }
+
+    // Skip if already loading
+    if (this.isLoadingAuditLogs) {
+      console.log('⏸️ Audit logs already loading, skipping duplicate request');
+      return;
+    }
+
+    this.auditLogsTimeout = setTimeout(() => {
+      console.log('🔄 Loading audit logs...');
+      this.isLoadingAuditLogs = true;
+
+      this.apiService.getAuditLogs().subscribe({
+        next: (res) => {
+          this.auditLogs = res.logs || [];
+          console.log(`✅ Loaded ${this.auditLogs.length} audit logs`);
+        },
+        error: (e) => {
+          console.error('❌ Failed to load audit logs:', e);
+          this.auditLogs = [];
+        }
+      }).add(() => {
+        this.isLoadingAuditLogs = false;
+      });
+    }, 500); // 500ms debounce to avoid rapid calls
+  }
+
   initializeLoginButton(): void {
     if (this.googleButton && !this.authService.isAuthenticated()) {
-      console.log('🔘 Rendering Google Sign-In button...');
       this.authService.renderButton(this.googleButton.nativeElement);
       this.cdr.detectChanges();
     }
   }
 
   submitJob(): void {
-    if (!this.folderId) {
-      this.showError('Por favor ingresa un ID de carpeta');
+    if (!this.folderId) return;
+
+    // Ensure we have an OAuth Access Token before submitting
+    if (!this.accessToken) {
+      console.warn('⚠️ No OAuth Access Token available. Requesting one...');
+      this.result = 'error';
+      this.resultMessage = 'No se ha podido obtener el token de acceso de Google. Por favor, intenta de nuevo.';
+      this.cdr.detectChanges();
+
+      // Try to request the token
+      this.requestAccessToken();
+
+      // Clear error after 5 seconds
+      setTimeout(() => {
+        this.result = '';
+        this.cdr.detectChanges();
+      }, 5000);
       return;
     }
 
-    console.log('🚀 Iniciando submitJob...', { folderId: this.folderId, jobType: this.jobType });
     this.isSubmitting = true;
     this.result = '';
     this.cdr.detectChanges();
 
-    const job: Job = {
+    console.log('🚀 Submitting job with folder_id:', this.folderId);
+    console.log('🚀 folder_id length:', this.folderId.length);
+    console.log('🚀 folder_id starts with:', this.folderId.substring(0, 5));
+
+    const job = {
       folder_id: this.folderId,
       job_type: this.jobType
     };
 
-    this.apiService.submitJob(job)
-      .subscribe({
-        next: (response) => {
-          console.log('✅ Respuesta exitosa recibida:', response);
-          this.showSuccess(`✅ ${response.message || 'Tarea creada exitosamente'}`);
-          this.folderId = '';
-        },
-        error: (error) => {
-          console.error('❌ Error en submitJob:', error);
-          const message = error.error?.detail || error.message || 'Error al procesar la solicitud';
-          this.showError(`❌ ${message}`);
-        },
-        complete: () => {
-          console.log('🏁 Observable completado');
-          this.isSubmitting = false;
-          this.cdr.detectChanges();
+    console.log('📦 Job payload:', job);
+    console.log('🔑 Including OAuth access_token for Worker:', this.accessToken.substring(0, 20) + '...');
 
-          // Auto-clear result after 10 seconds (extended)
-          setTimeout(() => {
-            if (!this.isSubmitting) {
-              this.result = '';
-              this.resultClass = '';
-              this.cdr.detectChanges();
-            }
-          }, 10000);
+    this.apiService.submitJob(job, this.accessToken).subscribe({
+      next: (response) => {
+        this.result = 'success';
+        this.resultMessage = response.message || 'Tarea encolada correctamente';
+        this.folderId = '';
+        if (this.isAdmin) this.loadAuditLogs();
+      },
+      error: (error) => {
+        this.result = 'error';
+        // Ensure resultMessage is a string and not [object Object]
+        const detail = error.error?.detail;
+        this.resultMessage = typeof detail === 'string' ? detail :
+          (detail?.message || error.message || 'Error desconocido al procesar');
+        console.error('Submission error:', error);
+      }
+    }).add(() => {
+      // Always reset submitting state (finally equivalent)
+      this.isSubmitting = false;
+      this.cdr.detectChanges();
+      setTimeout(() => { this.result = ''; this.cdr.detectChanges(); }, 8000);
+    });
+  }
+
+  showEditor = false;
+  isEditing = false;
+  currentJob: any = this.resetJob();
+
+  private resetJob() {
+    return {
+      id: '',
+      name: '',
+      description: '',
+      active: true,
+      trigger_type: 'manual',
+      schedule: '',
+      source_folder_id: '',
+      target_folder_names: ['Procesados'],
+      agent_config: {
+        model: { name: 'gemini-2.5-flash', temperature: 0.1, max_tokens: 4096 },
+        instructions: 'Analiza el documento y extrae el tipo, número y fecha para renombrar.',
+        prompt_template: 'Contenido del documento: {{content}}',
+        filename_format: 'DOC_{date}_{id}.pdf'
+      }
+    };
+  }
+
+  // --- UI Helpers ---
+  scheduledDate: string = '';
+  showScheduleHelp = false;
+  showModelHelp = false;
+  showConfigTutorial = false;
+  showFormatHelp = false;
+
+  appendTag(tag: string): void {
+    const current = this.currentJob.agent_config.filename_format || '';
+    // Append or replace? Let's just append for now but smart-ish
+    if (current.endsWith('_') || current === '') {
+      this.currentJob.agent_config.filename_format = current + tag;
+    } else {
+      this.currentJob.agent_config.filename_format = current + '_' + tag;
+    }
+    this.cdr.detectChanges();
+  }
+
+  updateCronFromDate(): void {
+    if (!this.scheduledDate) return;
+    const date = new Date(this.scheduledDate);
+    // Google Cloud Scheduler expects: minute hour day month dayOfWeek
+    const min = date.getMinutes();
+    const hour = date.getHours();
+    const day = date.getDate();
+    const month = date.getMonth() + 1; // 1-12
+    const cron = `${min} ${hour} ${day} ${month} *`;
+    this.currentJob.schedule = cron;
+    console.log('🔄 CRON Generated:', cron);
+  }
+
+  newJob(): void {
+    this.isEditing = false;
+    this.currentJob = this.resetJob();
+    this.showEditor = true;
+  }
+
+  editJob(job: any): void {
+    if (!job.id) {
+      alert('Error: La configuración seleccionada no tiene un ID válido. No se puede editar.');
+      return;
+    }
+    this.isEditing = true;
+    this.apiService.getJob(job.id).subscribe({
+      next: (res) => {
+        this.currentJob = res;
+        this.showEditor = true;
+      },
+      error: (e) => {
+        console.error('Error loading job:', e);
+        const errorMsg = e.error?.detail || e.message || 'Error desconocido';
+        alert(`Error al cargar configuración: ${errorMsg}\n\nID: ${job.id}`);
+      }
+    });
+  }
+
+  saveJob(): void {
+    const action = this.isEditing ?
+      this.apiService.updateJob(this.currentJob.id, this.currentJob) :
+      this.apiService.createJob(this.currentJob);
+
+    action.subscribe({
+      next: () => {
+        this.showEditor = false;
+        this.loadJobs();
+        // Show success message
+        this.result = 'success';
+        this.resultMessage = this.isEditing ?
+          'Algoritmo actualizado correctamente' :
+          'Algoritmo creado correctamente';
+        setTimeout(() => { this.result = ''; this.cdr.detectChanges(); }, 5000);
+      },
+      error: (e) => {
+        console.error('Error saving job:', e);
+        const errorMsg = e.error?.detail || e.message || 'Error desconocido';
+        alert(`Error al guardar: ${errorMsg}\n\n${this.isEditing ? 'Acción: Actualizar' : 'Acción: Crear'}\nID: ${this.currentJob.id || 'N/A'}`);
+      }
+    });
+  }
+
+  trackById(index: number, item: any): string {
+    return item.id || index;
+  }
+
+  deleteJob(id: string): void {
+    if (!id) {
+      alert('Error: No se pudo identificar el ID de la configuración para eliminar.');
+      return;
+    }
+    if (confirm('¿Estás seguro de eliminar esta configuración? Esta acción no se puede deshacer.')) {
+      this.apiService.deleteJob(id).subscribe({
+        next: () => {
+          this.loadJobs();
+          // Show success message
+          this.result = 'success';
+          this.resultMessage = 'Algoritmo eliminado correctamente';
+          setTimeout(() => { this.result = ''; this.cdr.detectChanges(); }, 5000);
+        },
+        error: (e) => {
+          console.error('Error deleting job:', e);
+          const errorMsg = e.error?.detail || e.message || 'Error desconocido';
+          alert(`Error al eliminar: ${errorMsg}\n\nID: ${id}`);
         }
       });
+    }
   }
 
-  showSuccess(message: string): void {
-    this.result = message;
-    this.resultClass = 'success';
-  }
+  duplicateJob(job: any): void {
+    if (!job.id) {
+      alert('Error: La configuración seleccionada no tiene un ID válido. No se puede duplicar.');
+      return;
+    }
 
-  showError(message: string): void {
-    this.result = message;
-    this.resultClass = 'error';
+    // Create a copy of the job with a new name and no ID
+    const duplicatedJob = {
+      ...job,
+      id: undefined,
+      name: `${job.name} [COPIA]`,
+      created_at: new Date().toISOString()
+    };
+
+    this.apiService.createJob(duplicatedJob).subscribe({
+      next: () => {
+        this.loadJobs();
+        // Show success message
+        this.result = 'success';
+        this.resultMessage = `Algoritmo "${job.name}" duplicado correctamente como "${duplicatedJob.name}"`;
+        setTimeout(() => { this.result = ''; this.cdr.detectChanges(); }, 5000);
+      },
+      error: (e) => alert('Error al duplicar: ' + (e.error?.detail || e.message))
+    });
   }
 
   signOut(): void {
     this.authService.signOut();
-    // Force change detection to update UI immediately
     this.cdr.detectChanges();
   }
 }
