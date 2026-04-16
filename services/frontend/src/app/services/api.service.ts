@@ -23,11 +23,20 @@ export class ApiService {
         console.log('📋 Full environment:', environment);
     }
 
-    submitJob(job: Job): Observable<JobResponse> {
+    submitJob(job: Job, accessToken: string): Observable<JobResponse> {
         const url = `${this.apiUrl}/api/v1/jobs/manual`;
         console.log('🌐 POST Request URL:', url);
         const headers = this.getAuthHeaders();
-        return this.http.post<JobResponse>(url, job, { headers }).pipe(
+
+        // Include OAuth Access Token in payload for Worker to use with Google Drive API
+        const payload = {
+            ...job,
+            access_token: accessToken
+        };
+
+        console.log('📦 Sending job with OAuth Access Token:', accessToken.substring(0, 20) + '...');
+
+        return this.http.post<JobResponse>(url, payload, { headers }).pipe(
             tap(() => console.log('✅ POST Request completed:', url))
         );
     }

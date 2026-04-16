@@ -297,7 +297,8 @@ class ManualJobRequest(BaseModel):
     """Request for manual job submission with input validation."""
     folder_id: str
     job_type: Optional[str] = "generic"
-    
+    access_token: Optional[str] = None  # OAuth Access Token for Google Drive API
+
     @validator('folder_id')
     def validate_folder_id(cls, v):
         # Relaxed logic: Google Drive IDs are alphanumeric with - and _
@@ -654,53 +655,39 @@ async def submit_manual_job(
     Submit a manual job for processing with user OAuth credentials.
 
     Security:
-    - Extracts user's access token from Authorization header
-    - Validates token before creating Cloud Task
-    - Passes token to Worker for user-specific Drive access
+    - User is authenticated via JWT/ID Token in Authorization header (handled by get_current_user)
+    - OAuth Access Token for Google Drive API comes from request body
+    - OAuth Access Token is passed directly to Worker without validation (external Google token)
     """
     logger.info(f"Manual job submission from {user['email']}")
 
     # ============================================================
-    # NUEVO: Extraer y validar access token del usuario
+    # OAuth Access Token Handling for Google Drive API
     # ============================================================
 
-    # Extract access token from Authorization header
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        logger.error("❌ Missing or invalid Authorization header")
-        raise HTTPException(
-            status_code=401,
-            detail="Authorization header required (Bearer token)"
-        )
-
-    access_token = auth_header.split("Bearer ")[1].strip()
-
-    # Validate the access token (double verification)
-    try:
-        # Verify token is valid and get user info
-        token_info = oauth_manager.verify_token(access_token)
-
-        # Ensure token belongs to the authenticated user
-        if token_info.get("email") != user.get("email"):
-            logger.error(f"❌ Token email mismatch: {token_info.get('email')} != {user.get('email')}")
+    # Priority 1: Use OAuth Access Token from request body (new flow)
+    if job_request.access_token:
+        access_token = job_request.access_token
+        logger.info(f"✅ Using OAuth Access Token from request body: {access_token[:20]}...")
+    else:
+        # Priority 2: Fallback to Authorization header (legacy/deprecated)
+        logger.warning("⚠️ No access_token in request body, falling back to Authorization header")
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            logger.error("❌ Missing access_token in body AND invalid Authorization header")
             raise HTTPException(
                 status_code=401,
-                detail="Token does not match authenticated user"
+                detail="OAuth Access Token required (in request body or Authorization header)"
             )
+        access_token = auth_header.split("Bearer ")[1].strip()
+        logger.warning(f"⚠️ Using Authorization header token (deprecated): {access_token[:20]}...")
 
-        logger.info(f"✅ Access token validated for user: {user['email']}")
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"❌ Access token validation failed: {e}")
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid or expired access token"
-        )
+    # Note: We do NOT validate OAuth Access Tokens with oauth_manager
+    # These are Google OAuth tokens meant for Google Drive API
+    # The Worker will use them directly with Google's API
 
     # ============================================================
-    # FIN NUEVO
+    # END OAuth Access Token Handling
     # ============================================================
 
     # Find appropriate job config
