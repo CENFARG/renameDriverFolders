@@ -964,6 +964,9 @@ async def run_task(request: Request):
         if task.execution_id:
             try:
                 logger.info(f"🔄 ATTEMPTING status update to 'processing' for {task.execution_id}")
+                logger.info(f"🔍 Executions manager type: {type(executions_manager)}, Table: {executions_manager.table_name if hasattr(executions_manager, 'table_name') else 'unknown'}")
+                logger.info(f"🔍 Filter: id={task.execution_id}, Updates: {{'status': 'processing'}}")
+
                 update_result = executions_manager.update("id", task.execution_id, {"status": "processing"})
                 logger.info(f"✅ Status updated to 'processing' for {task.execution_id}. Result: {update_result}")
             except Exception as e:

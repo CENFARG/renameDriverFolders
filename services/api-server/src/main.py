@@ -735,9 +735,12 @@ async def submit_manual_job(
     # Log execution for audit trail (before task creation)
     import time
     from datetime import datetime
-    
+
+    execution_id = f"exec-{int(time.time() * 1000)}"  # timestamp-based ID
+    logger.info(f"📝 Creating execution log with ID: {execution_id}")
+
     execution_log = {
-        "id": f"exec-{int(time.time() * 1000)}",  # timestamp-based ID
+        "id": execution_id,
         "user_email": user["email"],
         "user_name": user.get("name", "Unknown"),
         "folder_id": job_request.folder_id,
@@ -774,9 +777,9 @@ async def submit_manual_job(
     
     try:
         executions_manager.insert(execution_log)
-        logger.info(f"Job execution logged: {execution_log['id']}")
+        logger.info(f"✅ Job execution logged successfully: {execution_log['id']}")
     except Exception as e:
-        logger.error(f"Failed to log execution (non-fatal): {e}")
+        logger.error(f"❌ Failed to log execution (non-fatal): {e}")
         # Continue anyway - logging failure shouldn't block job submission
     
     try:
