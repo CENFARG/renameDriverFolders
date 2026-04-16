@@ -103,11 +103,23 @@ export class AppComponent implements OnInit, AfterViewInit {
         callback: (response: any) => {
           if (response.access_token) {
             this.accessToken = response.access_token;
-            console.log('✅ Access Token acquired for Picker');
+            console.log('✅ Access Token acquired for Drive API');
+
+            // Clear any error messages if token was successfully acquired
+            if (this.result === 'error' && this.resultMessage.includes('token de acceso')) {
+              this.result = '';
+              this.cdr.detectChanges();
+            }
+          } else if (response.error === 'popup_blocked') {
+            console.warn('⚠️ Popup was blocked by browser. Please allow popups for this site.');
+            this.result = 'error';
+            this.resultMessage = 'El navegador bloqueó la ventana de autorización. Por favor, permite popups para este sitio.';
+            this.cdr.detectChanges();
           }
         },
       });
-      tokenClient.requestAccessToken({ prompt: '' });
+      // Use 'consent' to ensure user sees the authorization screen
+      tokenClient.requestAccessToken({ prompt: 'consent' });
     } catch (e) {
       console.error('Error initializing token client:', e);
     }
@@ -247,21 +259,29 @@ export class AppComponent implements OnInit, AfterViewInit {
   submitJob(): void {
     if (!this.folderId) return;
 
-    // Ensure we have an OAuth Access Token before submitting
+    // If we don't have an OAuth Access Token, request it first
     if (!this.accessToken) {
       console.warn('⚠️ No OAuth Access Token available. Requesting one...');
-      this.result = 'error';
-      this.resultMessage = 'No se ha podido obtener el token de acceso de Google. Por favor, intenta de nuevo.';
+      this.isSubmitting = true; // Show loading state while requesting token
       this.cdr.detectChanges();
 
-      // Try to request the token
+      // Request the token and continue submission after callback
       this.requestAccessToken();
 
-      // Clear error after 5 seconds
+      // Don't show error - token request will trigger consent screen
+      // After user authorizes, they need to click submit again
       setTimeout(() => {
-        this.result = '';
+        this.isSubmitting = false;
+        this.result = 'info';
+        this.resultMessage = 'Por favor, autoriza el acceso a Google Drive y luego vuelve a hacer clic en "Ejecutar renombrado con IA".';
         this.cdr.detectChanges();
-      }, 5000);
+
+        // Clear message after 10 seconds
+        setTimeout(() => {
+          this.result = '';
+          this.cdr.detectChanges();
+        }, 10000);
+      }, 2000);
       return;
     }
 
