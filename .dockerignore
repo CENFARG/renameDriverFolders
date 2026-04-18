@@ -1,0 +1,33 @@
+# .dockerignore
+
+# Ignore Git directory
+.git
+
+# Ignore Skaffold configuration
+skaffold.yaml
+
+# Ignore Python virtual environment
+
+venv/
+
+# Ignore Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore IDE/editor configuration
+.vscode/
+.idea/
+
+# Ignore local environment files
+.env
+.env.*
+
+# Ignore logs and local data
+logs/
+*.log
+memory-bank/
+
+# Ignore CENF standards (not part of the app)
+.standards_cenf/
