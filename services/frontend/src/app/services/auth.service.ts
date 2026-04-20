@@ -361,27 +361,18 @@ export class AuthService {
                 const userStr = localStorage.getItem('user');
                 if (userStr) {
                     const user = JSON.parse(userStr);
-                    // Update any fields that might have changed
+                    this.userSubject.next(user);
                 }
+
+                console.log('✅ Silent refresh successful - token updated');
 
                 // Return void observable
                 return of(undefined);
             }),
             catchError(error => {
-                console.error('Silent refresh failed:', error);
+                console.error('❌ Silent refresh failed:', error);
                 this.clearSession();
                 return of(undefined);
-            })
-        );
-                    this.userSubject.next(user);
-                }
-
-                console.log('✅ Silent refresh successful - token updated');
-                return new Observable(observer => observer.complete());
-            }),
-            catchError(error => {
-                console.error('❌ Silent refresh failed:', error);
-                throw error;
             })
         );
     }
