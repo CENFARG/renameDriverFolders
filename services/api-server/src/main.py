@@ -98,17 +98,26 @@ if use_supabase:
 # Job Configurations Manager
 if use_supabase:
     db_manager = DatabaseManager(use_supabase=True, table_name="jobs")
+    algorithms_manager = DatabaseManager(use_supabase=True, table_name="document_algorithms")
     logger.info("DatabaseManager initialized in Supabase mode")
 elif use_gcs:
     db_manager = DatabaseManager(
         use_gcs=True,
         table_name="jobs"
     )
+    algorithms_manager = DatabaseManager(
+        use_gcs=True,
+        table_name="document_algorithms"
+    )
     logger.info("DatabaseManager initialized in GCS mode")
 else:
     db_manager = DatabaseManager(
         file_manager=file_manager,
         db_path="data/jobs.json"
+    )
+    algorithms_manager = DatabaseManager(
+        file_manager=file_manager,
+        db_path="data/algorithms.json"
     )
     logger.info("DatabaseManager initialized in JSON mode")
 
@@ -890,25 +899,30 @@ async def process_scheduled_jobs(request: Request):
 @app.get("/api/v1/jobs")
 async def list_jobs(user: dict = Depends(get_current_user)):
     """
-    List all available job configurations.
+    List all available job configurations from both 'jobs' and 'document_algorithms' tables.
     """
     try:
-        all_jobs = db_manager.find_all()
-        
+        # Get jobs from both tables
+        jobs_from_jobs = db_manager.find_all()
+        jobs_from_algorithms = algorithms_manager.find_all()
+        all_jobs = jobs_from_jobs + jobs_from_algorithms
+
+        logger.info(f"Found {len(jobs_from_jobs)} jobs in 'jobs' table and {len(jobs_from_algorithms)} in 'document_algorithms' table")
+
         # Filter sensitive info and ensure ID is present
         jobs_summary = []
         for job in all_jobs:
             # Defensive check: ensure id is present
             job_id = job.get("id") or job.get("job_id")
-            
+
             # Fallback if both are missing (e.g., corrupted or old data)
             if not job_id and job.get("source_folder_id"):
                 job_id = f"job-folder-{job.get('source_folder_id')[:8]}"
-            
+
             if not job_id:
                 logger.warning(f"Skipping job configuration with missing ID: {job}")
                 continue
-                
+
             jobs_summary.append({
                 "id": job_id,
                 "name": job.get("name", job_id),
@@ -936,19 +950,27 @@ async def list_jobs(user: dict = Depends(get_current_user)):
 async def create_job(job_config: JobConfig, user: dict = Depends(get_current_user)):
     """
     Create a new job configuration with strict validation.
+    Creates in 'jobs' table for active configurations or 'document_algorithms' for templates.
     """
     try:
-        # Check if already exists
-        existing = db_manager.find("id", job_config.id)
+        # Determine which table to use based on trigger_type
+        # 'scheduled' and 'manual' jobs go to 'jobs' table
+        # Algorithm templates go to 'document_algorithms' table
+        is_job_config = job_config.trigger_type in ['scheduled', 'manual']
+        manager_to_use = db_manager if is_job_config else algorithms_manager
+        table_name = "jobs" if is_job_config else "document_algorithms"
+
+        # Check if already exists in the target table
+        existing = manager_to_use.find("id", job_config.id)
         if existing:
-            raise HTTPException(status_code=409, detail=f"ID '{job_config.id}' already exists")
-            
+            raise HTTPException(status_code=409, detail=f"ID '{job_config.id}' already exists in '{table_name}'")
+
         # Insert into database using dict representation of validated model
-        db_manager.insert(job_config.dict())
-        
-        logger.info(f"Job '{job_config.id}' created by {user['email']}")
-        return {"status": "success", "message": f"Job '{job_config.id}' created"}
-        
+        manager_to_use.insert(job_config.dict())
+
+        logger.info(f"Job '{job_config.id}' created in '{table_name}' by {user['email']}")
+        return {"status": "success", "message": f"Job '{job_config.id}' created in '{table_name}'"}
+
     except HTTPException:
         raise
     except Exception as e:
@@ -960,13 +982,25 @@ async def create_job(job_config: JobConfig, user: dict = Depends(get_current_use
 async def get_job(job_id: str, user: dict = Depends(get_current_user)):
     """
     Get a single job configuration by ID.
+    Searches in both 'jobs' and 'document_algorithms' tables.
     Obtener una configuración de trabajo individual por ID.
+    Busca en ambas tablas: 'jobs' y 'document_algorithms'.
     """
     try:
+        # First, try to find in 'jobs' table (for active job configurations)
         jobs = db_manager.find("id", job_id)
-        if not jobs:
-            raise HTTPException(status_code=404, detail="Configuration not found")
-        return jobs[0]
+        if jobs:
+            logger.info(f"Found job {job_id} in 'jobs' table")
+            return jobs[0]
+
+        # If not found, try 'document_algorithms' table (for algorithm templates)
+        algorithms = algorithms_manager.find("id", job_id)
+        if algorithms:
+            logger.info(f"Found job {job_id} in 'document_algorithms' table")
+            return algorithms[0]
+
+        # Not found in either table
+        raise HTTPException(status_code=404, detail="Configuration not found")
     except HTTPException:
         raise
     except Exception as e:
@@ -978,21 +1012,31 @@ async def get_job(job_id: str, user: dict = Depends(get_current_user)):
 async def update_job(job_id: str, job_config: JobConfig, user: dict = Depends(get_current_user)):
     """
     Update configuration using JobConfig model for hardening.
+    Updates in either 'jobs' or 'document_algorithms' table.
     """
     try:
+        # Find which table has the job
         existing = db_manager.find("id", job_id)
+        manager_to_use = db_manager
+        table_name = "jobs"
+
+        if not existing:
+            existing = algorithms_manager.find("id", job_id)
+            manager_to_use = algorithms_manager
+            table_name = "document_algorithms"
+
         if not existing:
             raise HTTPException(status_code=404, detail="Configuration not found")
-        
+
         # Enforce ID consistency
         if job_config.id != job_id:
             raise HTTPException(status_code=400, detail="Path ID and body ID mismatch")
-        
-        db_manager.update("id", job_id, job_config.dict())
-        logger.info(f"Job '{job_id}' updated by {user['email']}")
-        
+
+        manager_to_use.update("id", job_id, job_config.dict())
+        logger.info(f"Job '{job_id}' updated in '{table_name}' by {user['email']}")
+
         return {"status": "success", "message": f"Job '{job_id}' updated"}
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -1004,16 +1048,26 @@ async def update_job(job_id: str, job_config: JobConfig, user: dict = Depends(ge
 async def delete_job(job_id: str, user: dict = Depends(get_current_user)):
     """
     Delete a job configuration.
+    Deletes from either 'jobs' or 'document_algorithms' table.
     """
     try:
+        # Find which table has the job
         existing = db_manager.find("id", job_id)
+        manager_to_use = db_manager
+        table_name = "jobs"
+
+        if not existing:
+            existing = algorithms_manager.find("id", job_id)
+            manager_to_use = algorithms_manager
+            table_name = "document_algorithms"
+
         if not existing:
             raise HTTPException(status_code=404, detail="Configuration not found")
-            
-        db_manager.delete("id", job_id)
-        logger.info(f"Job '{job_id}' deleted by {user['email']}")
+
+        manager_to_use.delete("id", job_id)
+        logger.info(f"Job '{job_id}' deleted from '{table_name}' by {user['email']}")
         return {"status": "success", "message": f"Job '{job_id}' deleted"}
-        
+
     except HTTPException:
         raise
     except Exception as e:
