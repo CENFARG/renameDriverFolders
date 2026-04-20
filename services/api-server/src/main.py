@@ -702,44 +702,92 @@ async def submit_manual_job(
     # Find appropriate job config
     # For manual jobs, we use a generic template or specific job_type
     job_id = f"job-manual-{job_request.job_type}"
-    
+
     # Check if job config exists in DB, if not create it (Auto-seeding)
     existing_jobs = db_manager.find("id", job_id)
     if not existing_jobs:
-        logger.info(f"Job config '{job_id}' not found. Seeding default configuration.")
-        
-        # Default configuration for manual generic job
-        default_job_config = {
-            "id": job_id,
-            "name": f"Manual Job {job_request.job_type.capitalize()}",
-            "description": "Auto-generated job configuration for manual triggers",
-            "active": True,
-            "trigger_type": "manual",
-            "schedule": None,
-            "source_folder_id": "DYNAMIC",
-            "target_folder_names": ["*"],
-            "agent_config": {
-                "model": {
-                    "name": "gemini-2.0-flash-exp",
-                    "temperature": 0.3,
-                    "max_tokens": 4096
-                },
-                "instructions": "Analiza el documento y extrae la fecha y palabras clave principales para renombrado.",
-                "output_schema": {
-                    "date": "str",
-                    "keywords": "list"
-                },
-                "prompt_template": "Analiza el documento '{original_filename}'. Contenido: {file_content}. Extrae la fecha (YYYY-MM-DD) y 3 keywords descriptivos. JSON output keys: date, keywords.",
-                "filename_format": "{date}_{keywords}_{ext}"
+        logger.info(f"Job config '{job_id}' not found. Checking if '{job_request.job_type}' is a document algorithm.")
+
+        # ============================================================
+        # NUEVO: Buscar algoritmo específico en document_algorithms
+        # ============================================================
+        algorithm = algorithms_manager.find("id", job_request.job_type)
+
+        if algorithm:
+            # El job_type corresponde a un algoritmo específico
+            # Convertir el algoritmo al formato que espera el Worker
+            algo_config = algorithm[0]
+            logger.info(f"Found algorithm '{job_request.job_type}' in document_algorithms. Converting to job config.")
+
+            # Mapear campos del algoritmo al formato de job_config
+            algorithm_job_config = {
+                "id": job_id,
+                "name": algo_config["name"],
+                "description": algo_config["description"],
+                "active": True,
+                "trigger_type": "manual",
+                "schedule": None,
+                "source_folder_id": "DYNAMIC",
+                "target_folder_names": ["*"],
+                "agent_config": {
+                    "model": {
+                        "name": "gemini-2.0-flash-exp",
+                        "temperature": 0.3,
+                        "max_tokens": 4096
+                    },
+                    # Usar extraction_prompt como prompt_template
+                    "prompt_template": algo_config["extraction_prompt"],
+                    # Usar filename_format del algoritmo
+                    "filename_format": algo_config["filename_format"],
+                    # Usar output_schema del algoritmo
+                    "output_schema": algo_config["output_schema"],
+                    "instructions": algo_config["classification_criteria"]
+                }
             }
-        }
-        
-        try:
-            db_manager.insert(default_job_config)
-            logger.info(f"Seeded default configuration for '{job_id}'")
-        except Exception as e:
-            logger.error(f"Failed to seed default job config: {e}")
-            # Continue anyway, maybe it exists but find failed? Or worker will fail.
+
+            try:
+                db_manager.insert(algorithm_job_config)
+                logger.info(f"Seeded algorithm-specific configuration for '{job_id}' from document_algorithms")
+            except Exception as e:
+                logger.error(f"Failed to seed algorithm job config: {e}")
+        else:
+            # ============================================================
+            # Fallback: Configuración genérica para algoritmos no encontrados
+            # ============================================================
+            logger.info(f"Algorithm '{job_request.job_type}' not found. Seeding default generic configuration.")
+
+            # Default configuration for manual generic job
+            default_job_config = {
+                "id": job_id,
+                "name": f"Manual Job {job_request.job_type.capitalize()}",
+                "description": "Auto-generated job configuration for manual triggers",
+                "active": True,
+                "trigger_type": "manual",
+                "schedule": None,
+                "source_folder_id": "DYNAMIC",
+                "target_folder_names": ["*"],
+                "agent_config": {
+                    "model": {
+                        "name": "gemini-2.0-flash-exp",
+                        "temperature": 0.3,
+                        "max_tokens": 4096
+                    },
+                    "instructions": "Analiza el documento y extrae la fecha y palabras clave principales para renombrado.",
+                    "output_schema": {
+                        "date": "str",
+                        "keywords": "list"
+                    },
+                    "prompt_template": "Analiza el documento '{original_filename}'. Contenido: {file_content}. Extrae la fecha (YYYY-MM-DD) y 3 keywords descriptivos. JSON output keys: date, keywords.",
+                    "filename_format": "{date}_{keywords}_{ext}"
+                }
+            }
+
+            try:
+                db_manager.insert(default_job_config)
+                logger.info(f"Seeded default configuration for '{job_id}'")
+            except Exception as e:
+                logger.error(f"Failed to seed default job config: {e}")
+                # Continue anyway, maybe it exists but find failed? Or worker will fail.
             
     # Log execution for audit trail (before task creation)
     import time

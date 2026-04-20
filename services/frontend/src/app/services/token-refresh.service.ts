@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Observable, Subject } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 declare const google: any;
 
@@ -26,6 +27,7 @@ export class TokenRefreshService {
     private readonly GOOGLE_ORIGIN = 'https://accounts.google.com';
     private readonly TIMEOUT_MS = 30000; // 30 seconds max for silent refresh
     private refreshInProgress = false;
+    private readonly environment = environment;
 
     /**
      * Silently refresh the OAuth token using an invisible iframe.
@@ -219,9 +221,8 @@ export class TokenRefreshService {
      * Gets the OAuth client ID from environment.
      */
     private getClientId(): string {
-        // Import dynamically to avoid circular dependency
-        const { environment } = require('../../environments/environment');
-        return environment.oauthClientId;
+        // Use environment directly
+        return this.environment.oauthClientId;
     }
 
     /**

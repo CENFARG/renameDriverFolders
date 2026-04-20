@@ -362,6 +362,17 @@ export class AuthService {
                 if (userStr) {
                     const user = JSON.parse(userStr);
                     // Update any fields that might have changed
+                }
+
+                // Return void observable
+                return of(undefined);
+            }),
+            catchError(error => {
+                console.error('Silent refresh failed:', error);
+                this.clearSession();
+                return of(undefined);
+            })
+        );
                     this.userSubject.next(user);
                 }
 
