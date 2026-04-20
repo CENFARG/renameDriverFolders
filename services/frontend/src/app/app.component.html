@@ -15,6 +15,11 @@
                     <span class="text-xs text-slate-500">{{user.email}}</span>
                 </div>
                 <img [src]="user.picture" alt="User" class="w-10 h-10 rounded-full border border-slate-200">
+                <button (click)="toggleTheme()"
+                    class="text-slate-500 hover:text-blue-500 transition-colors"
+                    title="Cambiar tema">
+                    <span class="text-xl">{{isDark ? '🌙' : '☀️'}}</span>
+                </button>
                 <button (click)="signOut()" class="text-slate-500 hover:text-red-500 transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
                         stroke="currentColor">
@@ -117,38 +122,74 @@
                             class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded-lg text-sm font-bold transition-all">Refrescar</button>
                     </div>
                     <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse">
-                            <thead>
-                                <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
-                                    <th class="px-6 py-4 font-semibold">Fecha/Hora</th>
-                                    <th class="px-6 py-4 font-semibold">Usuario</th>
-                                    <th class="px-6 py-4 font-semibold">Acción</th>
-                                    <th class="px-6 py-4 font-semibold">Estado</th>
-                                    <th class="px-6 py-4 font-semibold">Detalles</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100">
-                                <tr *ngFor="let log of auditLogs; trackBy: trackById"
-                                    class="hover:bg-slate-50 transition-colors">
-                                    <td class="px-6 py-4 text-xs text-slate-500">{{log.timestamp | date:'short'}}</td>
-                                    <td class="px-6 py-4 text-sm font-medium text-slate-700">{{log.user_email}}</td>
-                                    <td class="px-6 py-4"><span
-                                            class="px-2 py-1 rounded-full text-[10px] uppercase font-bold bg-slate-100 text-slate-600">{{log.action}}</span>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <span [ngClass]="{
-                                            'bg-yellow-100 text-yellow-700': log.status === 'submitted',
-                                            'bg-blue-100 text-blue-700': log.status === 'processing',
-                                            'bg-green-100 text-green-700': log.status === 'completed',
-                                            'bg-red-100 text-red-700': log.status === 'failed'
-                                          }" class="px-3 py-1 rounded-full text-xs font-bold uppercase">
-                                            {{ log.status }}
-                                        </span>
-                                    </td>
-                                    <td class="px-6 py-4 text-xs text-slate-500 max-w-xs truncate">{{log.details}}</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                        <!-- Agrupado por usuario -->
+                        <div class="space-y-4">
+                            <div *ngFor="let userGroup of groupedAuditLogs; trackBy: trackByEmail"
+                                class="border rounded-lg overflow-hidden">
+                                <!-- Header del usuario (clickeable para expandir/colapsar) -->
+                                <div (click)="toggleUserAuditExpansion(userGroup.email)"
+                                    class="flex justify-between items-center p-4 bg-slate-50 cursor-pointer hover:bg-slate-100 transition-colors">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                            <span class="text-sm font-bold text-blue-700">{{userGroup.email[0].toUpperCase()}}</span>
+                                        </div>
+                                        <div>
+                                            <div class="text-sm font-bold text-slate-800">{{userGroup.email}}</div>
+                                            <div class="text-xs text-slate-500">{{userGroup.logs.length}} ejecuciones</div>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-3">
+                                        <div class="text-right">
+                                            <div class="text-xs text-slate-500">Última actividad</div>
+                                            <div class="text-sm font-medium text-slate-700">{{userGroup.lastActivity | date:'short'}}</div>
+                                        </div>
+                                        <button class="text-slate-400 hover:text-slate-600">
+                                            <svg [class]="expandedUserEmails.includes(userGroup.email) ? 'rotate-180' : ''"
+                                                xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Logs del usuario (expansible) -->
+                                <div [hidden]="!expandedUserEmails.includes(userGroup.email)"
+                                    class="border-t bg-white">
+                                    <table class="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
+                                                <th class="px-6 py-3 font-semibold">Fecha/Hora</th>
+                                                <th class="px-6 py-3 font-semibold">Acción</th>
+                                                <th class="px-6 py-3 font-semibold">Estado</th>
+                                                <th class="px-6 py-3 font-semibold">Detalles</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-slate-100">
+                                            <tr *ngFor="let log of userGroup.logs; trackBy: trackById"
+                                                class="hover:bg-slate-50 transition-colors">
+                                                <td class="px-6 py-3 text-xs text-slate-500">{{log.timestamp | date:'short'}}</td>
+                                                <td class="px-6 py-3">
+                                                    <span class="px-2 py-1 rounded-full text-[10px] uppercase font-bold bg-slate-100 text-slate-600">
+                                                        {{log.action}}
+                                                    </span>
+                                                </td>
+                                                <td class="px-6 py-3 whitespace-nowrap">
+                                                    <span [ngClass]="{
+                                                        'bg-yellow-100 text-yellow-700': log.status === 'submitted',
+                                                        'bg-blue-100 text-blue-700': log.status === 'processing',
+                                                        'bg-green-100 text-green-700': log.status === 'completed',
+                                                        'bg-red-100 text-red-700': log.status === 'failed'
+                                                      }" class="px-3 py-1 rounded-full text-xs font-bold uppercase">
+                                                        {{ log.status }}
+                                                    </span>
+                                                </td>
+                                                <td class="px-6 py-3 text-xs text-slate-500 max-w-xs truncate">{{log.details}}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -318,37 +359,57 @@
                                 </div>
                             </div>
                             <div class="col-span-2" *ngIf="currentJob.trigger_type === 'scheduled'">
-                                <div class="flex justify-between items-baseline mb-1">
+                                <div class="flex justify-between items-baseline mb-3">
                                     <label class="block text-xs font-bold text-slate-500 uppercase">Programación
-                                        (CRON)</label>
+                                        Recurrente</label>
                                     <button type="button" (click)="showScheduleHelp = !showScheduleHelp"
-                                        class="text-[10px] text-blue-500 hover:underline">¿Cómo funciona?</button>
+                                        class="text-[10px] text-blue-500 hover:underline">Ayuda</button>
                                 </div>
 
                                 <div *ngIf="showScheduleHelp"
                                     class="mb-4 p-3 bg-blue-50 rounded-lg text-xs text-blue-800 animate-fade-in border border-blue-100">
-                                    <strong>Guía rápida de programación:</strong>
+                                    <strong>Selecciona los días y horarios:</strong>
                                     <ul class="list-disc ml-4 mt-1 space-y-1">
-                                        <li>Usa el selector de fecha para programar una ejecución única.</li>
-                                        <li>O escribe un CRON manual: <code>min hor día mes díaSem</code></li>
-                                        <li>Ej: <code>0 9 * * 1-5</code> (Lun a Vie a las 09:00).</li>
+                                        <li>Marca los días de la semana que querés</li>
+                                        <li>Elegí la hora (formato 24hs)</li>
+                                        <li>El sistema genera el CRON automáticamente</li>
                                     </ul>
                                 </div>
 
-                                <div class="flex gap-4">
-                                    <div class="flex-1">
-                                        <input [(ngModel)]="currentJob.schedule" type="text"
-                                            placeholder="ej: 0 9 * * 1-5"
-                                            class="w-full border rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm">
-                                    </div>
-                                    <div class="flex-1">
-                                        <input type="datetime-local" [(ngModel)]="scheduledDate"
-                                            (change)="updateCronFromDate()"
-                                            class="w-full border rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                                <!-- Checkboxes de días -->
+                                <div class="mb-4">
+                                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Días de la semana</label>
+                                    <div class="flex gap-2 flex-wrap">
+                                        <label *ngFor="let day of weekDays; trackBy: trackById" class="flex items-center gap-1 px-3 py-2 border rounded-lg hover:bg-blue-50 cursor-pointer transition-colors"
+                                            [class]="selectedDays.includes(day.value) ? 'bg-blue-100 border-blue-300' : 'bg-white border-slate-200'">
+                                            <input type="checkbox" [value]="day.value" [checked]="selectedDays.includes(day.value)"
+                                                (change)="toggleDay(day.value)"
+                                                class="w-4 h-4 accent-blue-600">
+                                            <span class="text-sm font-medium">{{day.label}}</span>
+                                        </label>
                                     </div>
                                 </div>
-                                <p class="text-[9px] text-slate-400 mt-1 uppercase font-bold">El selector de fecha
-                                    actualiza el CRON automáticamente.</p>
+
+                                <!-- Selector de hora -->
+                                <div class="mb-4">
+                                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Horario</label>
+                                    <div class="flex gap-2">
+                                        <input type="time" [(ngModel)]="selectedTime" (change)="updateScheduleFromUI()"
+                                            class="flex-1 border rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                                        <input [(ngModel)]="currentJob.schedule" type="text"
+                                            placeholder="ej: 0 9 * * 1-5"
+                                            class="flex-1 border rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm bg-slate-50"
+                                            readonly>
+                                    </div>
+                                </div>
+
+                                <!-- Traducción a humano -->
+                                <div class="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                                    <span class="text-[10px] text-slate-400 uppercase font-bold">Schedule actual</span>
+                                    <div class="text-sm font-medium text-slate-700 mt-1">
+                                        {{getScheduleDescription()}}
+                                    </div>
+                                </div>
                             </div>
                         </div>
 

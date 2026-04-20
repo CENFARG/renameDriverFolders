@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, tap, catchError, of } from 'rxjs';
+import { BehaviorSubject, Observable, tap, catchError, of, switchMap } from 'rxjs';
 import { User } from '../models/job.model';
 import { environment } from '../../environments/environment';
+import { TokenRefreshService } from './token-refresh.service';
 
 declare const google: any;
 
@@ -16,10 +17,13 @@ export class AuthService {
     private tokenExpiryKey = 'auth_token_expiry';
     private sessionTimeoutKey = 'session_last_activity';
     private readonly SESSION_DURATION = 60 * 60 * 1000; // 1 hora en ms
-    private readonly WARNING_THRESHOLD = 5 * 60 * 1000; // 5 minutos en ms
+    private readonly WARNING_THRESHOLD = 5 * 60 * 1000; // 5 minutos de margen (restaurado)
     private refreshTimer: any;
 
-    constructor(private http: HttpClient) {
+    constructor(
+        private http: HttpClient,
+        private tokenRefreshService: TokenRefreshService
+    ) {
         this.loadUserFromStorage();
         this.checkIapAuth();
         this.initializeSessionMonitoring();
@@ -267,10 +271,19 @@ export class AuthService {
             if (this.isAuthenticated()) {
                 this.updateSessionActivity();
             } else if (this.getToken()) {
-                // Token existe pero expiró
-                console.log('⚠️ Session expired, user needs to re-login');
-                this.clearSession();
-                this.userSubject.next(null);
+                // Token existe pero expiró - intentar renovación silenciosa PRIMERO
+                console.log('⚠️ Token expiring soon, attempting silent refresh...');
+                this.attemptSilentRefresh().subscribe({
+                    next: () => {
+                        console.log('✅ Token refreshed silently');
+                    },
+                    error: (err) => {
+                        console.warn('⚠️ Silent refresh failed:', err.message);
+                        console.log('⚠️ Session expired, user needs to re-login');
+                        this.clearSession();
+                        this.userSubject.next(null);
+                    }
+                });
             }
         }, 60000); // Cada minuto
     }
@@ -313,5 +326,52 @@ export class AuthService {
         const remaining = Math.max(0, expiry - now);
 
         return Math.floor(remaining / (60 * 1000)); // Retornar en minutos
+    }
+
+    /**
+     * Attempts to silently refresh the OAuth token using an invisible iframe.
+     * This prevents the user from being logged out when the token expires.
+     *
+     * SECURITY: Uses TokenRefreshService with origin validation and timeout protection.
+     *
+     * @returns Observable that completes on success or errors on failure
+     */
+    private attemptSilentRefresh(): Observable<void> {
+        // Check if silent refresh is possible
+        if (!this.tokenRefreshService.canRefreshSilently()) {
+            console.warn('⚠️ Silent refresh not possible - no active session');
+            return new Observable(observer => {
+                observer.error(new Error('No active session for silent refresh'));
+            });
+        }
+
+        console.log('🔄 Attempting silent token refresh...');
+
+        return this.tokenRefreshService.silentRefresh().pipe(
+            switchMap(newToken => {
+                // Update the stored token with the new one
+                this.setToken(newToken);
+
+                // Decode JWT to get user info and update expiry
+                const payload = JSON.parse(atob(newToken.split('.')[1]));
+                const exp = payload.exp * 1000; // Convert to ms
+                localStorage.setItem(this.tokenExpiryKey, exp.toString());
+
+                // Update user info if needed
+                const userStr = localStorage.getItem('user');
+                if (userStr) {
+                    const user = JSON.parse(userStr);
+                    // Update any fields that might have changed
+                    this.userSubject.next(user);
+                }
+
+                console.log('✅ Silent refresh successful - token updated');
+                return new Observable(observer => observer.complete());
+            }),
+            catchError(error => {
+                console.error('❌ Silent refresh failed:', error);
+                throw error;
+            })
+        );
     }
 }

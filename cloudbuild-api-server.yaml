@@ -1,0 +1,28 @@
+steps:
+  # Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-f', 'services/api-server/Dockerfile', '-t', 'gcr.io/cloud-functions-474716/renombradorarchivosgdrive-api-server-v2:oauth-fix', '.']
+
+  # Push the container image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/cloud-functions-474716/renombradorarchivosgdrive-api-server-v2:oauth-fix']
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'renombradorarchivosgdrive-api-server-v2'
+      - '--image'
+      - 'gcr.io/cloud-functions-474716/renombradorarchivosgdrive-api-server-v2:oauth-fix'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+
+images:
+  - 'gcr.io/cloud-functions-474716/renombradorarchivosgdrive-api-server-v2:oauth-fix'
+
+timeout: '1200s'

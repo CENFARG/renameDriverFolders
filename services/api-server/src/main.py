@@ -204,7 +204,7 @@ def seed_default_algorithms():
             logger.error(f"Failed to seed {algo['id']}: {e}")
 
 # Run seeding
-seed_default_algorithms()
+# seed_default_algorithms()  # DISABLED: Algorithms should only exist in documents_algorithms table, not duplicated in jobs table
 
 # OAuth Security Manager
 oauth_manager = None

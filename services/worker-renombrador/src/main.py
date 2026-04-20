@@ -967,8 +967,30 @@ async def run_task(request: Request):
                 logger.info(f"🔍 Executions manager type: {type(executions_manager)}, Table: {executions_manager.table_name if hasattr(executions_manager, 'table_name') else 'unknown'}")
                 logger.info(f"🔍 Filter: id={task.execution_id}, Updates: {{'status': 'processing'}}")
 
+                # DEBUG: Verify if execution exists in Supabase before update
+                if executions_manager.use_supabase:
+                    try:
+                        existing = executions_manager.supabase_client.table("job_executions").select("*").eq("id", task.execution_id).execute()
+                        logger.info(f"🔍 EXECUTION RECORD QUERY: Found {len(existing.data) if existing.data else 0} records with id={task.execution_id}")
+                        if existing.data:
+                            logger.info(f"🔍 EXECUTION RECORD DATA: {existing.data[0]}")
+                        else:
+                            logger.error(f"❌ EXECUTION RECORD NOT FOUND in Supabase for id={task.execution_id}")
+                    except Exception as query_error:
+                        logger.error(f"❌ QUERY ERROR: {query_error}")
+
                 update_result = executions_manager.update("id", task.execution_id, {"status": "processing"})
                 logger.info(f"✅ Status updated to 'processing' for {task.execution_id}. Result: {update_result}")
+
+                # DEBUG: Verify the update worked
+                if executions_manager.use_supabase and update_result > 0:
+                    try:
+                        updated = executions_manager.supabase_client.table("job_executions").select("*").eq("id", task.execution_id).execute()
+                        if updated.data:
+                            logger.info(f"🔍 VERIFIED UPDATE: New status is '{updated.data[0].get('status', 'unknown')}'")
+                    except Exception as verify_error:
+                        logger.error(f"❌ VERIFY ERROR: {verify_error}")
+
             except Exception as e:
                 logger.error(f"❌ FAILED to update status to 'processing' for {task.execution_id}: {e}", exc_info=True)
                 logger.error(f"executions_manager type: {type(executions_manager)}")

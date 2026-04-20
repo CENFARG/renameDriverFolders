@@ -42,6 +42,18 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   private isLoadingAuditLogs = false;
   private auditLogsTimeout: any = null;
   private auditLogsInterval: any = null;
+  isDark = true; // Dark theme by default
+  selectedDays: number[] = [1, 2, 3, 4, 5]; // Default: Lunes a Viernes
+  selectedTime = '09:00'; // Default: 9 AM
+  weekDays = [
+    { label: 'Lun', value: 1 },
+    { label: 'Mar', value: 2 },
+    { label: 'Mié', value: 3 },
+    { label: 'Jue', value: 4 },
+    { label: 'Vie', value: 5 },
+    { label: 'Sáb', value: 6 },
+    { label: 'Dom', value: 0 }
+  ];
 
   constructor(
     private authService: AuthService,
@@ -54,6 +66,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnInit(): void {
     this.authService.initializeGoogleSignIn();
     this.loadPickerApi();
+    this.initializeTheme();
 
     this.user$.subscribe(user => {
       console.log('👤 User state changed:', user ? user.email : 'Logged out');
@@ -64,7 +77,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         if (this.isAdmin) {
           this.loadAuditLogs();
         }
-        // Request token for picker
+        // Solicitar OAuth token INMEDIATAMENTE después del login (acción directa del usuario)
+        // No necesitamos delay - el usuario ya hizo clic en "Sign in with Google"
         this.requestAccessToken();
       } else {
         this.isAdmin = false;
@@ -87,6 +101,25 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   requestAccessToken(retryCount = 0): void {
+    // Check if we already have a valid token stored
+    const storedToken = localStorage.getItem('drive_access_token');
+    const tokenExpiry = localStorage.getItem('drive_token_expiry');
+
+    if (storedToken && tokenExpiry) {
+      const expiryTime = parseInt(tokenExpiry);
+      if (Date.now() < expiryTime) {
+        // Token is still valid, reuse it
+        this.accessToken = storedToken;
+        console.log('✅ Reusing existing valid Access Token');
+        return;
+      } else {
+        // Token expired, clear it
+        console.log('⚠️ Previous token expired, requesting new one');
+        localStorage.removeItem('drive_access_token');
+        localStorage.removeItem('drive_token_expiry');
+      }
+    }
+
     if (typeof google === 'undefined' || !google.accounts) {
       if (retryCount < 5) {
         console.warn(`⚠️ Google Identity Services not ready. Retrying... (${retryCount + 1}/5)`);
@@ -105,6 +138,12 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
           if (response.access_token) {
             this.accessToken = response.access_token;
             console.log('✅ Access Token acquired for Drive API');
+
+            // Store token with expiry (default 1 hour from Google)
+            const expiryTime = Date.now() + (55 * 60 * 1000); // 55 minutes (safe margin)
+            localStorage.setItem('drive_access_token', response.access_token);
+            localStorage.setItem('drive_token_expiry', expiryTime.toString());
+            console.log('💾 Token stored for reuse');
 
             // Clear any error messages if token was successfully acquired
             if (this.result === 'error' && this.resultMessage.includes('token de acceso')) {
@@ -127,7 +166,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   openPicker(target: 'dashboard' | 'config'): void {
-    if (!this.pickerApiLoaded || !this.accessToken) {
+    // Solicitar token solo si no existe (el usuario hizo clic - acción directa)
+    if (!this.accessToken) {
       this.requestAccessToken();
       return;
     }
@@ -173,6 +213,29 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngAfterViewInit(): void {
     setTimeout(() => this.initializeLoginButton(), 100);
+  }
+
+  initializeTheme(): void {
+    // Check for saved theme preference or default to dark
+    const savedTheme = localStorage.getItem('theme');
+    this.isDark = savedTheme !== 'light'; // Default to true if not set
+    this.applyTheme();
+  }
+
+  toggleTheme(): void {
+    this.isDark = !this.isDark;
+    localStorage.setItem('theme', this.isDark ? 'dark' : 'light');
+    this.applyTheme();
+  }
+
+  private applyTheme(): void {
+    const body = document.body;
+    if (this.isDark) {
+      body.classList.add('dark');
+    } else {
+      body.classList.remove('dark');
+    }
+    this.cdr.detectChanges();
   }
 
   ngOnDestroy(): void {
@@ -243,6 +306,50 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   get allJobs(): any[] {
     // Combine user jobs with predefined algorithms
     return [...this.jobs, ...this.predefinedAlgorithms];
+  }
+
+  get groupedAuditLogs(): any[] {
+    if (!this.auditLogs || this.auditLogs.length === 0) {
+      return [];
+    }
+
+    // Group by user email
+    const grouped: { [key: string]: { email: string; logs: any[]; lastActivity: Date } } = {};
+    this.auditLogs.forEach(log => {
+      const email = log.user_email || 'unknown';
+      if (!grouped[email]) {
+        grouped[email] = {
+          email: email,
+          logs: [],
+          lastActivity: new Date(0)
+        };
+      }
+      grouped[email].logs.push(log);
+
+      // Update last activity
+      const logDate = new Date(log.timestamp);
+      if (logDate > grouped[email].lastActivity) {
+        grouped[email].lastActivity = logDate;
+      }
+    });
+
+    // Convert to array and sort by last activity
+    return Object.values(grouped).sort((a: any, b: any) => b.lastActivity - a.lastActivity);
+  }
+
+  expandedUserEmails: string[] = [];
+
+  toggleUserAuditExpansion(email: string): void {
+    const index = this.expandedUserEmails.indexOf(email);
+    if (index > -1) {
+      this.expandedUserEmails.splice(index, 1);
+    } else {
+      this.expandedUserEmails.push(email);
+    }
+  }
+
+  trackByEmail(index: number, group: any): string {
+    return group.email;
   }
 
   loadAuditLogs(): void {
@@ -405,9 +512,130 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     console.log('🔄 CRON Generated:', cron);
   }
 
+  updateScheduleFromUI(): void {
+    // Ensure selectedDays is initialized
+    if (!this.selectedDays || !Array.isArray(this.selectedDays)) {
+      this.selectedDays = [1, 2, 3, 4, 5]; // Default: Lunes a Viernes
+    }
+
+    if (this.selectedDays.length === 0) {
+      this.currentJob.schedule = '';
+      return;
+    }
+
+    // Parse time (HH:MM)
+    const [hour, minute] = this.selectedTime.split(':').map(Number);
+
+    // Build day of week part for CRON
+    let daysPart = '';
+    if (this.selectedDays.length === 7) {
+      daysPart = '*'; // Todos los días
+    } else {
+      // Sort and join days
+      const sortedDays = [...this.selectedDays].sort((a, b) => a - b);
+      daysPart = sortedDays.join(',');
+    }
+
+    // CRON format: minute hour day month dayOfWeek
+    const cron = `${minute} ${hour} * * ${daysPart}`;
+    this.currentJob.schedule = cron;
+    console.log('🔄 Schedule updated:', cron);
+    this.cdr.detectChanges();
+  }
+
+  toggleDay(dayValue: number): void {
+    // Ensure selectedDays is initialized
+    if (!this.selectedDays || !Array.isArray(this.selectedDays)) {
+      this.selectedDays = [1, 2, 3, 4, 5];
+    }
+
+    const index = this.selectedDays.indexOf(dayValue);
+    if (index > -1) {
+      // Remove day if already selected
+      this.selectedDays.splice(index, 1);
+    } else {
+      // Add day if not selected
+      this.selectedDays.push(dayValue);
+    }
+
+    // Update schedule
+    this.updateScheduleFromUI();
+  }
+
+  getScheduleDescription(): string {
+    if (!this.currentJob.schedule) {
+      return 'No configurado';
+    }
+
+    try {
+      const parts = this.currentJob.schedule.split(' ');
+      if (parts.length !== 5) {
+        return this.currentJob.schedule; // Return raw if can't parse
+      }
+
+      const [minute, hour, , , dayOfWeek] = parts;
+      const time = `${hour}:${minute}`;
+
+      // Parse day of week
+      if (dayOfWeek === '*') {
+        return `Todos los días a las ${time}`;
+      }
+
+      // Check if it's a range (1-5) or specific days (1,2,3)
+      if (dayOfWeek.includes('-')) {
+        const [start, end] = dayOfWeek.split('-').map(Number);
+        if (start === 1 && end === 5) {
+          return `Lunes a Viernes a las ${time}`;
+        }
+        return `Días ${start} a ${end} a las ${time}`;
+      }
+
+      // Specific days
+      const days = dayOfWeek.split(',').map(Number);
+      if (days.length === 1) {
+        const dayName = this.weekDays.find(d => d.value === days[0])?.label || '';
+        return `Cada ${dayName} a las ${time}`;
+      }
+
+      const dayNames = days.map((d: number) => this.weekDays.find(wd => wd.value === d)?.label).join(', ');
+      return `Cada ${dayNames} a las ${time}`;
+    } catch (e) {
+      return this.currentJob.schedule; // Return raw if error
+    }
+  }
+
+  setSchedule(frequency: 'daily' | 'weekdays' | 'weekly', dayOfWeek?: number, hour?: number): void {
+    const h = hour || 9; // Default 9 AM
+    const cronMinute = '0'; // Siempre en el minuto 0
+
+    let cron = '';
+
+    switch (frequency) {
+      case 'daily':
+        // Todos los días a las X:00
+        cron = `${cronMinute} ${h} * * *`;
+        break;
+      case 'weekdays':
+        // Lunes a viernes (1-5) a las X:00
+        cron = `${cronMinute} ${h} * * 1-5`;
+        break;
+      case 'weekly':
+        // Día específico de la semana (1=Lunes, 7=Domingo)
+        const dow = dayOfWeek || 1;
+        cron = `${cronMinute} ${h} * * ${dow}`;
+        break;
+    }
+
+    this.currentJob.schedule = cron;
+    console.log('🔄 Schedule preset applied:', cron);
+    this.cdr.detectChanges();
+  }
+
   newJob(): void {
     this.isEditing = false;
     this.currentJob = this.resetJob();
+    this.selectedDays = [1, 2, 3, 4, 5]; // Default: Lunes a Viernes
+    this.selectedTime = '09:00'; // Default: 9 AM
     this.showEditor = true;
   }
 
@@ -420,6 +648,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     this.apiService.getJob(job.id).subscribe({
       next: (res) => {
         this.currentJob = res;
+        // Parse CRON to populate UI
+        this.parseCronToUI(res.schedule);
         this.showEditor = true;
       },
       error: (e) => {
@@ -430,10 +660,70 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  private parseCronToUI(cron: string): void {
+    if (!cron) {
+      this.selectedDays = [1, 2, 3, 4, 5];
+      this.selectedTime = '09:00';
+      return;
+    }
+
+    try {
+      const parts = cron.split(' ');
+      if (parts.length !== 5) return;
+
+      const [minute, hour, , , dayOfWeek] = parts;
+
+      // Set time
+      this.selectedTime = `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`;
+
+      // Parse days
+      if (dayOfWeek === '*') {
+        this.selectedDays = [0, 1, 2, 3, 4, 5, 6]; // All days
+      } else if (dayOfWeek.includes('-')) {
+        // Range (1-5)
+        const [start, end] = dayOfWeek.split('-').map(Number);
+        this.selectedDays = [];
+        for (let i = start; i <= end; i++) {
+          this.selectedDays.push(i);
+        }
+      } else {
+        // Specific days (1,2,3)
+        this.selectedDays = dayOfWeek.split(',').map(Number);
+      }
+    } catch (e) {
+      console.error('Error parsing CRON:', e);
+      this.selectedDays = [1, 2, 3, 4, 5];
+      this.selectedTime = '09:00';
+    }
+  }
+
   saveJob(): void {
+    // Validation: name and source_folder_id are required
+    if (!this.currentJob.name || this.currentJob.name.trim() === '') {
+      alert('El nombre descriptivo es obligatorio');
+      return;
+    }
+    if (!this.currentJob.source_folder_id || this.currentJob.source_folder_id.trim() === '') {
+      alert('La carpeta de origen es obligatoria');
+      return;
+    }
+
+    // Clean UI-only fields before sending to backend
+    const jobPayload = {
+      id: this.currentJob.id,
+      name: this.currentJob.name.trim(),
+      description: this.currentJob.description,
+      active: this.currentJob.active,
+      trigger_type: this.currentJob.trigger_type,
+      schedule: this.currentJob.schedule,
+      source_folder_id: this.currentJob.source_folder_id,
+      target_folder_names: this.currentJob.target_folder_names,
+      agent_config: this.currentJob.agent_config
+    };
+
     const action = this.isEditing ?
-      this.apiService.updateJob(this.currentJob.id, this.currentJob) :
-      this.apiService.createJob(this.currentJob);
+      this.apiService.updateJob(this.currentJob.id, jobPayload) :
+      this.apiService.createJob(jobPayload);
 
     action.subscribe({
       next: () => {
@@ -448,8 +738,10 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       },
       error: (e) => {
         console.error('Error saving job:', e);
-        const errorMsg = e.error?.detail || e.message || 'Error desconocido';
-        alert(`Error al guardar: ${errorMsg}\n\n${this.isEditing ? 'Acción: Actualizar' : 'Acción: Crear'}\nID: ${this.currentJob.id || 'N/A'}`);
+        console.error('Error status:', e.status);
+        console.error('Error body:', e.error);
+        const errorMsg = e.error?.detail || e.error?.message || JSON.stringify(e.error) || e.message || 'Error desconocido';
+        alert(`Error al guardar: ${errorMsg}\n\n${this.isEditing ? 'Acción: Actualizar' : 'Acción: Crear'}\nID: ${this.currentJob.id || 'N/A'}\n\nStatus: ${e.status}`);
       }
     });
   }
