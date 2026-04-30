@@ -27,7 +27,12 @@ from agno.models.google import Gemini
 from agno.tools import Toolkit
 from agno.guardrails import PIIDetectionGuardrail, PromptInjectionGuardrail
 
-# Import Pydantic model for structured outputs
+# Import Pydantic models for structured outputs
+try:
+    from .schemas import DocumentClassification
+except ImportError:
+    DocumentClassification = None
+
 try:
     from .models import FileAnalysis
 except ImportError:
@@ -150,11 +155,21 @@ class AgentFactory:
         
         # Add optional output schema if defined
         output_schema = agent_config.get("output_schema") or agent_config.get("response_model")
-        
-        # CENF 2026-01-04: Force FileAnalysis model if it's a file analysis task
-        if FileAnalysis is not None:
-             logger.info("Forcing FileAnalysis Pydantic model for structured outputs")
-             agent_params["output_schema"] = FileAnalysis
+
+        # CENF 2026-04-30: Use DocumentClassification for document classification tasks
+        # Detect classification tasks by checking if it's a classification job or has algorithm_id in schema
+        is_classification_task = (
+            "classify" in job_config.get("id", "").lower() or
+            (isinstance(output_schema, dict) and "algorithm_id" in output_schema) or
+            DocumentClassification is not None
+        )
+
+        if is_classification_task and DocumentClassification is not None:
+            logger.info("Using DocumentClassification Pydantic model for document classification")
+            agent_params["output_schema"] = DocumentClassification
+        elif FileAnalysis is not None:
+            logger.info("Using FileAnalysis Pydantic model for file analysis")
+            agent_params["output_schema"] = FileAnalysis
         elif output_schema:
             # Convert dict to Pydantic model if necessary
             if isinstance(output_schema, dict):
@@ -177,18 +192,19 @@ class AgentFactory:
         """
         Creates a Pydantic model from a JSON schema dict.
         Crea un modelo Pydantic desde un dict de schema JSON.
-        
+
         Agno requiere output_schema como Type[BaseModel] para structured outputs.
-        
-        UPDATED: Usa FileAnalysis model si está disponible para mejor validación.
+
+        UPDATED: Uses DocumentClassification model for document classification tasks.
+        Falls back to dynamic model creation for other schema types.
         """
-        # If FileAnalysis is imported, use it for file analysis tasks
-        if FileAnalysis is not None:
-            logger.info("Using FileAnalysis Pydantic model for structured outputs")
-            return FileAnalysis
-        
+        # If DocumentClassification is imported, use it for document classification tasks
+        if DocumentClassification is not None:
+            logger.info("Using DocumentClassification Pydantic model for structured outputs")
+            return DocumentClassification
+
         # Fallback: create dynamic model (old behavior)
-        logger.warning("FileAnalysis model not available, creating dynamic Pydantic model")
+        logger.warning("DocumentClassification model not available, creating dynamic Pydantic model")
         from pydantic import BaseModel, create_model
         
         fields = {}
