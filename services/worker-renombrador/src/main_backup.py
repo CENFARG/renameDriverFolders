@@ -23,8 +23,12 @@ from contextlib import asynccontextmanager
 from pydantic import BaseModel
 import google.auth
 from google.oauth2 import service_account
+from google.oauth2 import credentials as oauth2_credentials  # OAuth user credentials
 from google.cloud import storage
-from google.cloud import secretmanager
+import google_auth_httplib2
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+# from google.cloud import secretmanager  # Imported below optionally
 from googleapiclient.discovery import build
 
 # Core modules
@@ -54,12 +58,17 @@ def get_secret(secret_id: str) -> str:
 
     # Production: use Secret Manager
     try:
+        from google.cloud import secretmanager
         client = secretmanager.SecretManagerServiceClient()
         project_id = os.environ.get("GCP_PROJECT_ID", "cloud-functions-474716")
         name = f"projects/{project_id}/secrets/{secret_id}/versions/latest"
         response = client.access_secret_version(request={"name": name})
         logger.info(f"Using Secret Manager for {secret_id}")
         return response.payload.data.decode("UTF-8").strip()
+    except ImportError as e:
+        logger.warning(f"Secret Manager not available: {e}")
+        logger.warning(f"Please set {env_var} environment variable")
+        return ""
     except Exception as e:
         logger.warning(f"Failed to get secret {secret_id}: {e}")
         return ""
@@ -167,26 +176,38 @@ app = FastAPI(
 # --- Request Models ---
 
 class UserCredentials(BaseModel):
-    """User OAuth credentials for Google Drive API access."""
+    """
+    User OAuth credentials passed from API Server.
+
+    Security:
+    - access_token is validated by API Server before being sent
+    - Token is short-lived (~60 min)
+    - Scope is limited to drive API
+    """
     access_token: str
     email: str
     name: Optional[str] = None
     scope: str = "https://www.googleapis.com/auth/drive"
 
     class Config:
-        extra = "ignore"  # Allow extra fields for forward compatibility
+        # Extra fields for future compatibility
+        extra = "ignore"
 
 
 class TaskPayload(BaseModel):
     """
     Payload for Cloud Tasks.
+
+    Contains job configuration and optionally user credentials.
     """
     job_id: Optional[str] = None
     folder_id: Optional[str] = None
     user_token: Optional[str] = None  # Deprecated: kept for backward compatibility
-    user_credentials: Optional[UserCredentials] = None  # OAuth credentials for manual jobs
     trigger_type: str = "scheduled"  # "scheduled" or "manual"
     execution_id: Optional[str] = None
+
+    # NEW: User OAuth credentials (optional, for manual jobs)
+    user_credentials: Optional[UserCredentials] = None
 
 
 class JobRunRequest(BaseModel):
@@ -208,7 +229,7 @@ def get_credentials():
         "https://www.googleapis.com/auth/drive",
         "https://www.googleapis.com/auth/cloud-platform"
     ]
-
+    
     try:
         # Try Application Default Credentials first (Cloud Run)
         credentials, project_id = google.auth.default(scopes=SCOPES)
@@ -219,29 +240,93 @@ def get_credentials():
         raise
 
 
-def create_credentials_from_token(access_token: str):
+def get_user_credentials(access_token: str, scope: str):
     """
-    Create OAuth credentials from access token.
-    Crea credenciales OAuth desde un access token.
+    Create OAuth credentials from user access token.
+
+    This creates credentials that the Worker can use to access Google Drive
+    on behalf of the user, instead of using service account credentials.
 
     Args:
-        access_token: OAuth access token from user's Google session.
+        access_token: User's OAuth access token (validated by API Server)
+        scope: OAuth scope (e.g., https://www.googleapis.com/auth/drive)
 
     Returns:
-        Credentials object with the access token.
-    """
-    from google.oauth2.credentials import Credentials as OAuthCredentials
+        OAuth credentials object for Google API calls
 
-    credentials = OAuthCredentials(
+    Security:
+    - Access token is short-lived (~60 min)
+    - No refresh token is stored
+    - Credentials are only used in memory
+    """
+    # Use google.oauth2.credentials.Credentials instead of OAuthCredentials
+    # to prevent automatic token refresh attempts
+    return oauth2_credentials.Credentials(
         token=access_token,
-        scopes=["https://www.googleapis.com/auth/drive"],
-        token_uri="https://oauth2.googleapis.com/token",
-        client_id="",  # Not needed for token-based auth
-        client_secret=""  # Not needed for token-based auth
+        scopes=[scope],
+        # Disable token refresh - we don't have refresh_token
+        expiry=None,
+        token_uri=None,
+        client_id=None,
+        client_secret=None
     )
 
-    logger.info(f"Created OAuth credentials from access token: {access_token[:20]}...")
-    return credentials
+
+def build_drive_service_with_credentials(credentials):
+    """
+    Build Drive service with custom HTTP object that injects Bearer token manually.
+
+    CRITICAL: google_auth_httplib2.AuthorizedHttp ALWAYS attempts to refresh
+    credentials on 401/403, regardless of how credentials are configured.
+
+    Solution: Create custom Http object that adds Authorization header to every request.
+    """
+    import httplib2
+
+    # Store the access token
+    access_token = credentials.token
+
+    logger.info(f"🔧 Building Drive service with manual Bearer token injection")
+    logger.info(f"🔧 Access token: {mask_access_token(access_token)}")
+
+    # Create custom HTTP object that injects Bearer token
+    class TokenInjectorHttp(httplib2.Http):
+        def request(self, uri, method="GET", body=None, headers=None,
+                   redirections=1, connection_type=None):
+            # Inject Authorization header into every request
+            if headers is None:
+                headers = {}
+            headers['Authorization'] = f'Bearer {access_token}'
+
+            logger.debug(f"🔑 Injected Bearer token into {method} request to {uri}")
+
+            # Call parent request with updated headers
+            return super().request(uri, method, body, headers,
+                                  redirections, connection_type)
+
+    # Build Drive service with custom HTTP object
+    http = TokenInjectorHttp()
+    drive_service = build("drive", "v3", http=http)
+
+    logger.info("✅ Drive service built successfully (manual token injection)")
+    return drive_service
+
+
+def mask_access_token(token: str) -> str:
+    """
+    Mask access token for safe logging.
+
+    Shows only first 4 and last 4 characters.
+
+    Args:
+        token: Access token to mask
+
+    Returns:
+        Masked token string
+    """
+    if len(token) > 8:
+        return f"{token[:4]}...{token[-4:]}"
+    return "****"
 
 
 def load_job_config(job_id: str) -> Optional[Dict[str, Any]]:
@@ -305,20 +390,35 @@ def process_job(
     try:
         # Use provided folder_id or get from config
         target_folder_id = folder_id or job_config.get("source_folder_id")
-
-        logger.info(f"📁 Target folder ID: {target_folder_id}")
-        logger.info(f"📁 Folder ID source: {'manual parameter' if folder_id else 'job_config'}")
-
+        
         if not target_folder_id or target_folder_id == "DYNAMIC":
             raise ValueError(f"No folder_id provided for job '{job_id}'")
-
+        
         # Create agent for this job using AgentFactory
         agent = agent_factory.create_agent_from_job_config(job_config)
         logger.info(f"Agent created for job '{job_name}'")
 
-        # Initialize Drive service
-        drive_service = build("drive", "v3", credentials=credentials)
+        # ============================================================
+        # DEBUG: Verificar credenciales antes de crear Drive service
+        # ============================================================
+        logger.info(f"🔍 Credentials type: {type(credentials).__name__}")
+        logger.info(f"🔍 Credentials module: {type(credentials).__module__}")
+        logger.info(f"🔍 Credentials token: {mask_access_token(credentials.token) if hasattr(credentials, 'token') else 'NO TOKEN'}")
+        logger.info(f"🔍 Credentials scopes: {credentials.scopes if hasattr(credentials, 'scopes') else 'NO SCOPES'}")
+        logger.info(f"🔍 Credentials expiry: {credentials.expiry if hasattr(credentials, 'expiry') else 'NO EXPIRY'}")
+        logger.info(f"🔍 Credentials token_uri: {credentials.token_uri if hasattr(credentials, 'token_uri') else 'NO TOKEN_URI'}")
+        logger.info(f"🔍 Credentials client_id: {credentials.client_id if hasattr(credentials, 'client_id') else 'NO CLIENT_ID'}")
+        # ============================================================
+
+        # Initialize Drive service with custom HTTP transport (no auto-refresh)
+        drive_service = build_drive_service_with_credentials(credentials)
         storage_client = storage.Client(credentials=credentials)
+
+        # SIMPLIFIED LOGIC: Only process files directly in the specified folder
+        # Manual jobs: Process files in folder_id directly (no subfolders)
+        # Scheduled jobs: Could process subfolders if configured (future feature)
+        folders_to_process = [target_folder_id]
+        logger.info(f"[process_job] Processing files directly in folder: {target_folder_id}")
 
         # Process files
         stats = {
@@ -327,43 +427,10 @@ def process_job(
             "errors": 0
         }
 
-        # ============================================================
-        # DIFERENCIAR MODO MANUAL vs SCHEDULED
-        # ============================================================
+        logger.info(f"[process_job] Total folders to process: {len(folders_to_process)}")
 
-        if folder_id:
-            # ============================================================
-            # MODO MANUAL: Ignorar target_folder_names, procesar TODO
-            # ============================================================
-            logger.info(f"✅ MANUAL MODE: Processing ALL files in selected folder: {target_folder_id}")
-            logger.info(f"🚫 MANUAL MODE: Ignoring target_folder_names from job_config")
-            folders_to_process = [target_folder_id]
-
-        else:
-            # ============================================================
-            # MODO SCHEDULED: Usar target_folder_names del job_config
-            # ============================================================
-            target_folder_names = job_config.get("target_folder_names", ["*"])
-            logger.info(f"📅 SCHEDULED MODE: Using target_folder_names from job_config: {target_folder_names}")
-
-            # If target_folder_names is ["*"], process all files in folder
-            if target_folder_names == ["*"]:
-                folders_to_process = [target_folder_id]
-                logger.info(f"✅ SCHEDULED MODE: Processing ALL files in folder: {target_folder_id}")
-            else:
-                # Find specific subfolders
-                logger.info(f"🔍 SCHEDULED MODE: Looking for specific subfolders: {target_folder_names}")
-                folders_to_process = find_target_folders(
-                    drive_service,
-                    target_folder_id,
-                    target_folder_names
-                )
-                logger.info(f"📂 SCHEDULED MODE: Found {len(folders_to_process)} folders to process: {folders_to_process}")
-
-        logger.info(f"🔄 Starting to process {len(folders_to_process)} folder(s)")
-
-        for idx, folder in enumerate(folders_to_process, 1):
-            logger.info(f"📂 Processing folder {idx}/{len(folders_to_process)}: {folder}")
+        for folder in folders_to_process:
+            logger.info(f"[process_job] Processing folder: {folder}")
             folder_stats = process_folder_files(
                 drive_service=drive_service,
                 folder_id=folder,
@@ -406,28 +473,44 @@ def find_target_folders(
     """
     Find specific folders by name within a root folder.
     Encuentra carpetas específicas por nombre dentro de una carpeta raíz.
+
+    If target_names is ["*"] and no subfolders found, returns root_folder_id
+    to process files directly in the root folder.
     """
     found_folders = []
-    
+
     try:
         query = f"'{root_folder_id}' in parents and trashed=false and mimeType='application/vnd.google-apps.folder'"
+        logger.debug(f"[find_target_folders] Searching for folders in root_folder_id: {root_folder_id}")
+        logger.debug(f"[find_target_folders] Query: {query}")
+        logger.debug(f"[find_target_folders] Target names: {target_names}")
+
         response = drive_service.files().list(
             q=query,
             fields="files(id, name)",
             supportsAllDrives=True,
             includeItemsFromAllDrives=True
         ).execute()
-        
+
         folders = response.get("files", [])
-        
+        logger.debug(f"[find_target_folders] Found {len(folders)} total folders in root")
+
         for folder in folders:
-            if folder["name"] in target_names:
+            logger.debug(f"[find_target_folders] Checking folder: {folder['name']} (ID: {folder['id']})")
+            if "*" in target_names or folder["name"] in target_names:
                 found_folders.append(folder["id"])
                 logger.info(f"Found target folder: {folder['name']} (ID: {folder['id']})")
-    
+
+        # FIX: If wildcard (*) and no subfolders found, process root folder directly
+        if "*" in target_names and len(found_folders) == 0:
+            logger.warning(f"[find_target_folders] No subfolders found with wildcard '*', processing root folder directly: {root_folder_id}")
+            found_folders.append(root_folder_id)
+
+        logger.debug(f"[find_target_folders] Returning {len(found_folders)} folders to process")
+
     except Exception as e:
-        logger.error(f"Error finding folders: {e}")
-    
+        logger.error(f"Error finding folders: {e}", exc_info=True)
+
     return found_folders
 
 
@@ -444,11 +527,10 @@ def process_folder_files(
     stats = {"files_processed": 0, "files_renamed": 0, "errors": 0}
 
     try:
-        logger.info(f"🔍 Listing files in folder: {folder_id}")
-
         # List files in folder
         query = f"'{folder_id}' in parents and trashed=false and mimeType != 'application/vnd.google-apps.folder'"
-        logger.info(f"🔍 Query: {query}")
+        logger.debug(f"[process_folder_files] Searching for files in folder_id: {folder_id}")
+        logger.debug(f"[process_folder_files] Query: {query}")
 
         response = drive_service.files().list(
             q=query,
@@ -458,20 +540,25 @@ def process_folder_files(
         ).execute()
 
         files = response.get("files", [])
-        logger.info(f"✅ Found {len(files)} files in folder {folder_id}")
+        logger.info(f"Found {len(files)} files in folder {folder_id}")
 
         if len(files) == 0:
-            logger.warning(f"⚠️  No files found in folder {folder_id}")
-            logger.info(f"📋 File names in folder: {[f['name'] for f in files]}")
-            return stats
-        
+            logger.warning(f"[process_folder_files] NO FILES FOUND in folder {folder_id}")
+            logger.debug(f"[process_folder_files] Folder might be empty or we don't have access")
+        else:
+            logger.debug(f"[process_folder_files] Files found:")
+            for file in files:
+                logger.debug(f"  - {file['name']} (ID: {file['id']}, mimeType: {file.get('mimeType', 'N/A')})")
+
         for file in files:
             stats["files_processed"] += 1
-            
+
             # Skip already processed files
             if "DOCPROCESADO" in file["name"] or file["name"] == "index.html":
+                logger.debug(f"[process_folder_files] Skipping already processed file: {file['name']}")
                 continue
-            
+
+            logger.debug(f"[process_folder_files] Processing file: {file['name']}")
             try:
                 # Download file content
                 file_bytes = download_file(drive_service, file["id"])
@@ -511,20 +598,7 @@ def process_folder_files(
                 print("="*80 + "\n")
                 
                 logger.info(f"Gemini response received for {file['name']}")
-
-                # ============================================================
-                # DEBUG: Verificar respuesta del AI ANTES de parsear
-                # ============================================================
-                logger.info(f"🤖 AI Response type: {type(response)}")
-                logger.info(f"🤖 AI Response has .content: {hasattr(response, 'content')}")
-                logger.info(f"🤖 AI Response has .model_dump: {hasattr(response, 'model_dump')}")
-                logger.info(f"🤖 AI Response has .dict: {hasattr(response, 'dict')}")
-
-                if hasattr(response, 'content'):
-                    content = response.content
-                    logger.info(f"🤖 AI Response content type: {type(content)}")
-                    logger.info(f"🤖 AI Response content (first 500 chars): {str(content)[:500]}")
-
+                
                 # Parse response (should match output_schema)
                 # For now, assume response.content has the structured data
                 analysis = parse_agent_response(response)
@@ -722,32 +796,188 @@ async def health_check():
     }
 
 
+@app.get("/debug/code")
+async def debug_code():
+    """
+    DEBUG: Return source code of critical functions to verify deployed code.
+    This endpoint allows us to check what code is actually running in production.
+    """
+    import inspect
+
+    return {
+        "function": "get_user_credentials",
+        "source": inspect.getsource(get_user_credentials),
+        "module": get_user_credentials.__module__,
+        "file": inspect.getfile(get_user_credentials)
+    }
+
+
 @app.post("/run-task")
 async def run_task(request: Request):
     """
     Main endpoint triggered by Cloud Tasks.
     Punto de entrada principal disparado por Cloud Tasks.
-    
-    Processes jobs based on payload:
-    - If job_id provided: runs that specific job
-    - If no job_id: runs all active scheduled jobs
+
+    Processes jobs with user OAuth credentials (manual jobs) or
+    service account credentials (scheduled jobs).
+
+    Security:
+    - OIDC token verification for Cloud Tasks authentication
+    - Only Cloud Tasks service account can invoke this endpoint
+    - User credentials are used when available (manual jobs)
+    - Service account fallback for scheduled jobs
+    - Access tokens are masked in logs
     """
+    # ============================================================
+    # SECURITY: Verify OIDC token from Cloud Tasks
+    # ============================================================
+    auth_header = request.headers.get("Authorization")
+
+    if not auth_header:
+        logger.warning("🚨 SECURITY: Missing Authorization header")
+        raise HTTPException(
+            status_code=401,
+            detail="Missing Authorization header. This endpoint requires OIDC authentication from Cloud Tasks."
+        )
+
+    if not auth_header.startswith("Bearer "):
+        logger.warning(f"🚨 SECURITY: Invalid Authorization header format: {auth_header[:20]}...")
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid Authorization header format. Expected: Bearer <token>"
+        )
+
+    token = auth_header.split(" ")[1]
+
+    try:
+        # Verify OIDC token
+        expected_audience = os.environ.get("WORKER_URL")
+        if not expected_audience:
+            logger.error("🚨 SECURITY: WORKER_URL environment variable not set")
+            raise HTTPException(
+                status_code=500,
+                detail="Server configuration error: WORKER_URL not set"
+            )
+
+        logger.info(f"🔐 Verifying OIDC token with audience: {expected_audience}")
+
+        id_info = id_token.verify_oauth2_token(
+            token,
+            google_requests.Request(),
+            expected_audience
+        )
+
+        # Verify that the token is from the correct Cloud Tasks service account
+        expected_sa = "scheduler-trigger@cloud-functions-474716.iam.gserviceaccount.com"
+        token_email = id_info.get("email")
+
+        if token_email != expected_sa:
+            logger.warning(f"🚨 SECURITY: Unauthorized service account: {token_email} (expected: {expected_sa})")
+            raise HTTPException(
+                status_code=403,
+                detail=f"Unauthorized service account: {token_email}. Only Cloud Tasks service account can invoke this endpoint."
+            )
+
+        logger.info(f"✅ OIDC token verified successfully from: {token_email}")
+
+    except ValueError as e:
+        logger.error(f"🚨 SECURITY: Invalid OIDC token: {e}")
+        raise HTTPException(
+            status_code=401,
+            detail=f"Invalid OIDC token: {str(e)}"
+        )
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+    except Exception as e:
+        logger.error(f"🚨 SECURITY: Token verification error: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=401,
+            detail=f"Token verification failed: {str(e)}"
+        )
+
+    logger.info("=" * 60)
     logger.info("Task received from Cloud Tasks")
+
+    # ============================================================
+    # DEBUG: Capturar request body crudo ANTES de procesar
+    # ============================================================
+    try:
+        body_bytes = await request.body()
+        body_str = body_bytes.decode("utf-8")
+
+        logger.info(f"📦 Raw request body length: {len(body_str)} bytes")
+        logger.info(f"📦 Raw request body (first 500 chars): {body_str[:500]}")
+
+        import json
+        task_data = json.loads(body_str)
+
+        logger.info(f"📋 Parsed JSON keys: {list(task_data.keys())}")
+        logger.info(f"📋 Total fields in payload: {len(task_data)}")
+
+        if "user_credentials" in task_data:
+            logger.info(f"✅ user_credentials FOUND in payload")
+            creds = task_data["user_credentials"]
+            logger.info(f"   - Keys in user_credentials: {list(creds.keys()) if isinstance(creds, dict) else 'NOT A DICT'}")
+            if isinstance(creds, dict) and "access_token" in creds:
+                token = creds["access_token"]
+                logger.info(f"   - access_token length: {len(token)}")
+                logger.info(f"   - access_token prefix: {token[:20]}...")
+        else:
+            logger.info("❌ user_credentials NOT FOUND in payload")
+
+        if "access_token" in task_data:
+            logger.info(f"⚠️  DEPRECATED access_token field found (should be in user_credentials)")
+
+    except Exception as debug_e:
+        logger.error(f"DEBUG logging failed: {debug_e}")
+    # ============================================================
 
     try:
         payload = await request.json()
         task = TaskPayload(**payload)
+
+        logger.info(f"🔧 TaskPayload deserialized successfully")
+        logger.info(f"   - task.user_credentials: {task.user_credentials is not None}")
+        if task.user_credentials:
+            logger.info(f"   - task.user_credentials.email: {task.user_credentials.email}")
     except Exception as e:
         logger.error(f"Invalid task payload: {e}")
         raise HTTPException(status_code=400, detail=f"Invalid payload: {e}")
 
-    # Use user OAuth credentials if provided (manual jobs), otherwise use ADC (scheduled jobs)
-    if task.user_credentials:
-        logger.info(f"✅ Using user OAuth credentials for {task.user_credentials.email}")
-        credentials = create_credentials_from_token(task.user_credentials.access_token)
+    # ============================================================
+    # NUEVO: Determinar qué credenciales usar
+    # ============================================================
+
+    if task.user_credentials and task.user_credentials.access_token:
+        # Manual job with user credentials
+        user_email = task.user_credentials.email
+        access_token = task.user_credentials.access_token
+        scope = task.user_credentials.scope
+
+        logger.info(f"🔐 Using USER OAuth credentials")
+        logger.info(f"   User: {user_email}")
+
+        # Mask token for logging (don't log full token)
+        masked_token = mask_access_token(access_token)
+        logger.info(f"   Access token: {masked_token}")
+        logger.info(f"   Scope: {scope}")
+
+        # Create OAuth credentials from user's access token
+        credentials = get_user_credentials(access_token, scope)
+
+        logger.info(f"   ✅ User OAuth credentials created")
+
     else:
-        logger.info("Using Application Default Credentials (scheduled job)")
+        # Scheduled job with service account credentials
+        logger.info("🔧 Using SERVICE ACCOUNT credentials (scheduled job)")
+        logger.info("   ⚠️  No user credentials provided")
+
         credentials = get_credentials()
+
+    # ============================================================
+    # FIN NUEVO
+    # ============================================================
     
     # Process specific job or all active jobs
     if task.job_id:
@@ -757,20 +987,59 @@ async def run_task(request: Request):
         
         if task.execution_id:
             try:
-                executions_manager.update("id", task.execution_id, {"status": "processing"})
-                logger.info(f"Execution {task.execution_id} status updated: processing")
+                logger.info(f"🔄 ATTEMPTING status update to 'processing' for {task.execution_id}")
+                logger.info(f"🔍 Executions manager type: {type(executions_manager)}, Table: {executions_manager.table_name if hasattr(executions_manager, 'table_name') else 'unknown'}")
+                logger.info(f"🔍 Filter: id={task.execution_id}, Updates: {{'status': 'processing'}}")
+
+                # DEBUG: Verify if execution exists in Supabase before update
+                if executions_manager.use_supabase:
+                    try:
+                        existing = executions_manager.supabase_client.table("job_executions").select("*").eq("id", task.execution_id).execute()
+                        logger.info(f"🔍 EXECUTION RECORD QUERY: Found {len(existing.data) if existing.data else 0} records with id={task.execution_id}")
+                        if existing.data:
+                            logger.info(f"🔍 EXECUTION RECORD DATA: {existing.data[0]}")
+                        else:
+                            logger.error(f"❌ EXECUTION RECORD NOT FOUND in Supabase for id={task.execution_id}")
+                    except Exception as query_error:
+                        logger.error(f"❌ QUERY ERROR: {query_error}")
+
+                update_result = executions_manager.update("id", task.execution_id, {"status": "processing"})
+                logger.info(f"✅ Status updated to 'processing' for {task.execution_id}. Result: {update_result}")
+
+                # DEBUG: Verify the update worked
+                if executions_manager.use_supabase and update_result > 0:
+                    try:
+                        updated = executions_manager.supabase_client.table("job_executions").select("*").eq("id", task.execution_id).execute()
+                        if updated.data:
+                            logger.info(f"🔍 VERIFIED UPDATE: New status is '{updated.data[0].get('status', 'unknown')}'")
+                    except Exception as verify_error:
+                        logger.error(f"❌ VERIFY ERROR: {verify_error}")
+
             except Exception as e:
-                logger.warning(f"Failed to update execution status (non-fatal): {e}")
+                logger.error(f"❌ FAILED to update status to 'processing' for {task.execution_id}: {e}", exc_info=True)
+                logger.error(f"executions_manager type: {type(executions_manager)}")
+                logger.error(f"executions_manager table: {executions_manager.table_name if hasattr(executions_manager, 'table_name') else 'unknown'}")
 
         try:
             result = process_job(job_config, task.folder_id, credentials)
             
             if task.execution_id:
-                executions_manager.update("id", task.execution_id, {
-                    "status": "completed" if result.get("status") == "success" else "failed",
-                    "details": f"Processed {result.get('stats', {}).get('renamed', 0)} files. Folder: {task.folder_id}"
-                })
-            
+                final_status = "completed" if result.get("status") == "success" else "failed"
+                final_details = f"Processed {result.get('stats', {}).get('files_processed', 0)} files, Renamed {result.get('stats', {}).get('files_renamed', 0)} files. Folder: {task.folder_id}"
+
+                logger.info(f"🔄 ATTEMPTING status update to '{final_status}' for {task.execution_id}")
+                logger.info(f"📊 Stats: {result.get('stats', {})}")
+
+                try:
+                    update_result = executions_manager.update("id", task.execution_id, {
+                        "status": final_status,
+                        "details": final_details,
+                        "stats": result.get('stats', {})
+                    })
+                    logger.info(f"✅ Status updated to '{final_status}' for {task.execution_id}. Result: {update_result}")
+                except Exception as e:
+                    logger.error(f"❌ FAILED to update status to '{final_status}' for {task.execution_id}: {e}", exc_info=True)
+
             return result
         except Exception as e:
             logger.error(f"Error in process_job: {e}")

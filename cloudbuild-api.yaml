@@ -1,0 +1,32 @@
+steps:
+  # Build the API Server image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-f'
+      - 'services/api-server/Dockerfile'
+      - '-t'
+      - 'gcr.io/cloud-functions-474716/renombradorarchivosgdrive-api-server-v2:fix-debug'
+      - '.'
+
+  # Push the image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/cloud-functions-474716/renombradorarchivosgdrive-api-server-v2:fix-debug'
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'renombradorarchivosgdrive-api-server-v2'
+      - '--image'
+      - 'gcr.io/cloud-functions-474716/renombradorarchivosgdrive-api-server-v2:fix-debug'
+      - '--region'
+      - 'us-central1'
+      - '--allow-unauthenticated'
+      - '--memory'
+      - '512Mi'
+      - '--max-instances'
+      - '10'

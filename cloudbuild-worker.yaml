@@ -1,0 +1,33 @@
+steps:
+  # Build the Worker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-f'
+      - 'services/worker-renombrador/Dockerfile'
+      - '-t'
+      - 'gcr.io/cloud-functions-474716/renombradorarchivosgdrive-worker-v2:fix-debug'
+      - '.'
+
+  # Push the image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/cloud-functions-474716/renombradorarchivosgdrive-worker-v2:fix-debug'
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'renombradorarchivosgdrive-worker-v2'
+      - '--image'
+      - 'gcr.io/cloud-functions-474716/renombradorarchivosgdrive-worker-v2:fix-debug'
+      - '--region'
+      - 'us-central1'
+      - '--allow-unauthenticated'
+      - '--memory'
+      - '2Gi'
+      - '--max-instances'
+      - '100'
+      - '--no-cpu-throttling'

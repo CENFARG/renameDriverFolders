@@ -36,7 +36,7 @@ class DriveHandler:
             self.gemini_model = None
         else:
             genai.configure(api_key=gemini_api_key)
-            self.gemini_model = genai.GenerativeModel(config_manager.get_setting("gemini.model_name", "gemini-2.5-flash"))
+            self.gemini_model = genai.GenerativeModel(config_manager.get_setting("gemini.model_name", "gemini-2.5-flash-exp"))
 
         self.target_folder_names = config_manager.get_setting("google_cloud.target_folder_names", ["doc de respaldo"])
 

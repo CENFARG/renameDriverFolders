@@ -27,7 +27,7 @@ RUN pip install --no-cache-dir ./packages/core-renombrador
 # Copiar código del worker (desde la raiz)
 COPY services/worker-renombrador/src ./src
 COPY services/worker-renombrador/config ./config
-COPY services/worker-renombrador/data ./data
+# COPY services/worker-renombrador/data ./data  # Directorio data no existe
 
 # Crea un usuario no-root y cambia la propiedad del directorio de trabajo
 RUN adduser --system --group appuser

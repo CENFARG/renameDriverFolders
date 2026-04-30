@@ -39,7 +39,7 @@ def test_category_extraction():
     
     # Updated to a known available model from the list
     agent_config = {
-        "model_id": "gemini-2.0-flash",
+        "model_id": "gemini-2.5-flash",
         "temperature": 0.0,
         "prompt_template": "Analyze this content and extract structured data:\n\n{file_content}"
     }

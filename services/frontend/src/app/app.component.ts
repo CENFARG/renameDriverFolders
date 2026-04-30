@@ -22,7 +22,7 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
 
   user$: Observable<any | null>;
   folderId = '';
-  jobType = 'generic';
+  jobType = 'auto-classify';
   isSubmitting = false;
   result = '';
   resultMessage = '';
@@ -74,6 +74,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
         this.isAdmin = this.ADMIN_EMAILS.includes(user.email);
         this.loadJobs();
         // loadAlgorithms() is called inside loadJobs() to ensure jobs are loaded first
+        // Load auto-classify config for job templates
+        this.loadAutoClassifyConfig();
         if (this.isAdmin) {
           this.loadAuditLogs();
         }
@@ -158,8 +160,9 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
           }
         },
       });
-      // Use 'consent' to ensure user sees the authorization screen
-      tokenClient.requestAccessToken({ prompt: 'consent' });
+      // Use 'select' mode to avoid popup blocker (shows dropdown instead)
+      // 'consent' ensures user sees authorization screen
+      tokenClient.requestAccessToken({ prompt: 'consent', mode: 'select' });
     } catch (e) {
       console.error('Error initializing token client:', e);
     }
@@ -462,6 +465,8 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
   isEditing = false;
   currentJob: any = this.resetJob();
 
+  private autoClassifyConfig: any = null; // Cache the auto-classify config
+
   private resetJob() {
     return {
       id: '',
@@ -472,13 +477,28 @@ export class AppComponent implements OnInit, AfterViewInit, OnDestroy {
       schedule: '',
       source_folder_id: '',
       target_folder_names: ['Procesados'],
-      agent_config: {
+      agent_config: this.autoClassifyConfig || {
+        // Fallback if not loaded yet - will be replaced with auto-classify config
         model: { name: 'gemini-2.5-flash', temperature: 0.1, max_tokens: 4096 },
-        instructions: 'Analiza el documento y extrae el tipo, número y fecha para renombrar.',
-        prompt_template: 'Contenido del documento: {{content}}',
-        filename_format: 'DOC_{date}_{id}.pdf'
+        instructions: 'Auto-classification with 10 algorithms - loading...',
+        prompt_template: 'Loading...',
+        filename_format: 'auto_classified.{ext}'
       }
     };
+  }
+
+  private loadAutoClassifyConfig(): void {
+    // Load the auto-classify job config to use as template
+    this.apiService.getJob('job-manual-auto-classify').subscribe({
+      next: (job) => {
+        this.autoClassifyConfig = job.agent_config;
+        console.log('✅ Auto-classify config loaded for templates');
+      },
+      error: (e) => {
+        console.warn('⚠️ Failed to load auto-classify config:', e);
+        // Will use fallback from resetJob()
+      }
+    });
   }
 
   // --- UI Helpers ---

@@ -1,5 +1,6 @@
 google-api-python-client
 google-cloud-storage
+google-cloud-secret-manager>=2.20.0
 google-auth
 google-auth-httplib2
 google-generativeai

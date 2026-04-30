@@ -17,6 +17,9 @@ COPY packages/core-renombrador /app/packages/core-renombrador
 # Y luego instalarlo en modo editable para que pueda ser encontrado por los otros servicios
 RUN pip install -e /app/packages/core-renombrador
 
+# Limpiar archivos Python compilados para asegurar código fresco (FIX DOCKER CACHE)
+RUN find /app -type f -name "*.pyc" -delete && \
+    find /app -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 
 # Crea un usuario no-root y cambia la propiedad del directorio de trabajo
 RUN adduser --system --group appuser

@@ -48,6 +48,11 @@ FILENAME_FORMAT:
 
         algorithms_prompt = "\n".join(algorithm_blocks)
 
+        # ============================================================
+        # NUEVO DISEÑO: Guardar el prompt COMPLETO en el job
+        # ============================================================
+        logger.info(f"STEP 4.5: Building COMPLETE prompt template (no placeholders)...")
+
         logger.info(f"STEP 4: Building AUTO-CLASSIFY job config...")
         logger.info(f"  Total algorithms included: {len(all_algorithms)}")
 
@@ -80,12 +85,12 @@ PROCESS:
 
 IMPORTANT: You must identify the correct algorithm and use its specific output schema, not a generic one.
 """,
-                "prompt_template": """Analyze the following document and determine which algorithm applies:
+                "prompt_template": f"""Analyze the following document and determine which algorithm applies:
 
-ORIGINAL FILE: {original_filename}
+ORIGINAL FILE: {{original_filename}}
 
 DOCUMENT CONTENT:
-{file_content}
+{{file_content}}
 
 AVAILABLE ALGORITHMS:
 {algorithms_prompt}

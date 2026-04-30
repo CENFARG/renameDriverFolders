@@ -25,7 +25,9 @@ dependencies = [
     "openpyxl",
     "python-docx",
     "supabase>=2.0.0",  # Database support
-    "agno==2.3.9"  # Agno framework for AI agents
+    "agno==2.3.9",  # Agno framework for AI agents
+    "aiosqlite>=0.19.0",  # Async SQLite support for token store
+    "cryptography>=41.0.0",  # Token encryption at rest
 ]
 
 [build-system]

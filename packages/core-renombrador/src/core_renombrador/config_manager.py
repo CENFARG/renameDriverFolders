@@ -101,7 +101,7 @@ class ConfigManager:
 
         try:
             # Assume database has an 'app_config' collection/table
-            # with records like: {"key": "gemini.model_name", "value": "gemini-2.0-flash-exp"}
+            # with records like: {"key": "gemini.model_name", "value": "gemini-2.5-flash-exp"}
             configs = self.database_manager.find_all()
             
             # Build nested dict from dot-notation keys
