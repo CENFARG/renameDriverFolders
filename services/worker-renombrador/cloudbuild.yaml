@@ -4,7 +4,7 @@ steps:
       - 'build'
       - '--no-cache'
       - '-t'
-      - 'gcr.io/$PROJECT_ID/renombradorarchivosgdrive-worker-v2:latest'
+      - 'gcr.io/$PROJECT_ID/renombradorarchivosgdrive-worker-v2:20260502-203456'
       - '-f'
       - 'services/worker-renombrador/Dockerfile.build'
       - '.'
@@ -14,7 +14,7 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - 'gcr.io/$PROJECT_ID/renombradorarchivosgdrive-worker-v2:latest'
+      - 'gcr.io/$PROJECT_ID/renombradorarchivosgdrive-worker-v2:20260502-203456'
 
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: 'gcloud'
@@ -23,13 +23,13 @@ steps:
       - 'deploy'
       - 'renombradorarchivosgdrive-worker-v2'
       - '--image'
-      - 'gcr.io/$PROJECT_ID/renombradorarchivosgdrive-worker-v2:latest'
+      - 'gcr.io/$PROJECT_ID/renombradorarchivosgdrive-worker-v2:20260502-203456'
       - '--region'
       - 'us-central1'
       - '--platform'
       - 'managed'
 
 images:
-  - 'gcr.io/$PROJECT_ID/renombradorarchivosgdrive-worker-v2:latest'
+  - 'gcr.io/$PROJECT_ID/renombradorarchivosgdrive-worker-v2:20260502-203456'
 
 timeout: 1200s
