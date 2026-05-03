@@ -567,43 +567,38 @@ def download_file(drive_service, file_id: str) -> bytes:
 
 def parse_agent_response(response) -> Dict[str, Any]:
     """
-    Parse agent response to extract structured data.
-    
-    With Agno's output_schema (Pydantic), the response should already be a Pydantic model.
-    This function now simply converts it to dict.
-    
-    UPDATED: Simplified since Agno guarantees structured Pydantic output.
+    Parse Agno agent response to extract structured data.
+
+    Agno returns a RunResponse object with .content attribute.
+    The .content should be the Pydantic model (DocumentClassification).
+
+    FIXED: Check for .content FIRST, then handle Pydantic models.
     """
     logger.debug(f"Parsing agent response. Type: {type(response)}")
-    
-    # Check if response has Pydantic model_dump() method (Pydantic v2)
-    if hasattr(response, 'model_dump'):
-        result = response.model_dump()
-        logger.debug(f"Successfully converted Pydantic model to dict: {result}")
-        return result
-    
-    # Check if response has dict() method (Pydantic v1)
-    if hasattr(response, 'dict'):
-        result = response.dict()
-        logger.debug(f"Successfully converted Pydantic model to dict (v1): {result}")
-        return result
-    
-    # If response has .content attribute
+
+    # CRITICAL FIX: Agno returns RunResponse, not Pydantic model directly
+    # The Pydantic model is in .content
     if hasattr(response, "content"):
         content = response.content
         logger.debug(f"Response has .content attribute. Type: {type(content)}")
-        
-        # If content is already a Pydantic model
-        if hasattr(content, 'model_dump'):
+
+        # If content is a Pydantic model (has model_dump)
+        if hasattr(content, 'model_dump') and callable(content.model_dump):
             result = content.model_dump()
             logger.debug(f"Converted content Pydantic model to dict: {result}")
             return result
-        
-        # If content is a dict
+
+        # If content is a Pydantic model v1 (has dict)
+        if hasattr(content, 'dict') and callable(content.dict):
+            result = content.dict()
+            logger.debug(f"Converted content Pydantic v1 model to dict: {result}")
+            return result
+
+        # If content is already a dict
         if isinstance(content, dict):
             logger.debug(f"Content is already a dict: {content}")
             return content
-        
+
         # If content is a string, try to parse as JSON (fallback)
         if isinstance(content, str):
             logger.warning(f"Content is string, attempting JSON parse: {content[:200]}...")
@@ -618,11 +613,22 @@ def parse_agent_response(response) -> Dict[str, Any]:
                 return result
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to parse JSON: {e}. Content: {content[:500]}")
-                return {"date": "2025-01-01", "keywords": ["documento"]}
-    
+                # Return fallback with error info
+                return {
+                    "algorithm_id": "unknown",
+                    "date": "2025-01-01",
+                    "confidence": 0.0,
+                    "reasoning": f"JSON parse error: {str(e)[:100]}"
+                }
+
     # Last resort fallback
     logger.error(f"Unable to parse response. Type: {type(response)}. Using fallback values.")
-    return {"date": "2025-01-01", "keywords": ["documento"]}
+    return {
+        "algorithm_id": "unknown",
+        "date": "2025-01-01",
+        "confidence": 0.0,
+        "reasoning": "Unable to parse response - no .content attribute"
+    }
 
 
 def build_filename(

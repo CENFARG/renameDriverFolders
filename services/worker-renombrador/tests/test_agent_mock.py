@@ -96,10 +96,11 @@ class TestAgentWithMockedGemini:
         assert classification.confidence == 0.85
 
     def test_parse_agent_response_with_pydantic_model(self):
-        """Test parse_agent_response with Pydantic model."""
+        """Test parse_agent_response with Pydantic model in .content."""
         from main import parse_agent_response
 
-        # Create a mock response with Pydantic model
+        # Create a mock response simulating Agno RunResponse
+        # RunResponse has .content which is the Pydantic model
         mock_response = Mock()
         classification = DocumentClassification(
             algorithm_id="estado_contable",
@@ -109,13 +110,14 @@ class TestAgentWithMockedGemini:
         )
         mock_response.content = classification
 
-        # Should have model_dump
+        # Should have model_dump as callable
         assert hasattr(mock_response.content, 'model_dump'), "Should have model_dump"
+        assert callable(mock_response.content.model_dump), "model_dump should be callable"
 
         # Parse should work
         result = parse_agent_response(mock_response)
 
-        assert isinstance(result, dict)
+        assert isinstance(result, dict), f"Result should be dict, got {type(result)}"
         assert result["algorithm_id"] == "estado_contable"
         assert result["date"] == "2024-03-15"
 
