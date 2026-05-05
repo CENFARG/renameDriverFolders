@@ -479,12 +479,28 @@ def process_folder_files(
                 # Extract content (with OCR if needed)
                 content = content_extractor.get_content(file["name"], file_bytes)
                 logger.info(f"Extracted content length: {len(content)} chars for {file['name']}")
-                
-                # Analyze with agent
-                prompt = job_config["agent_config"]["prompt_template"].format(
-                    original_filename=file["name"],
-                    file_content=content[:8000]  # Limit content
-                )
+
+                # DEBUG: Log job_config structure BEFORE using it
+                logger.info(f"DEBUG: job_config type = {type(job_config)}")
+                logger.info(f"DEBUG: job_config keys = {job_config.keys() if isinstance(job_config, dict) else 'NOT A DICT'}")
+                if "agent_config" in job_config:
+                    logger.info(f"DEBUG: agent_config type = {type(job_config['agent_config'])}")
+                    logger.info(f"DEBUG: agent_config keys = {job_config['agent_config'].keys() if isinstance(job_config['agent_config'], dict) else 'NOT A DICT'}")
+                    if "prompt_template" in job_config["agent_config"]:
+                        prompt_template = job_config["agent_config"]["prompt_template"]
+                        logger.info(f"DEBUG: prompt_template type = {type(prompt_template)}")
+                        logger.info(f"DEBUG: prompt_template value (first 500 chars) = {str(prompt_template)[:500] if not isinstance(prompt_template, str) else prompt_template[:500]}")
+                    else:
+                        logger.error(f"DEBUG: 'prompt_template' NOT FOUND in agent_config! Keys: {job_config['agent_config'].keys()}")
+                else:
+                    logger.error(f"DEBUG: 'agent_config' NOT FOUND in job_config! Keys: {job_config.keys()}")
+
+                # Analyze with agent — use str.replace() instead of .format()
+                # because prompt_template contains JSON schemas with { } braces
+                # that .format() would misinterpret as placeholders
+                prompt = job_config["agent_config"]["prompt_template"]
+                prompt = prompt.replace("{original_filename}", file["name"])
+                prompt = prompt.replace("{file_content}", content[:8000])
                 
                 # LOG COMPLETO DEL PROMPT
                 print("\n" + "="*80)
@@ -539,7 +555,8 @@ def process_folder_files(
                 logger.info(f"Renamed: {file['name']} -> {new_name}")
                 
             except Exception as e:
-                logger.error(f"Error processing file {file['name']}: {e}")
+                logger.error(f"Error processing file {file['name']}: {e}", exc_info=True)
+                logger.error(f"Full exception details:", exc_info=True)
                 stats["errors"] += 1
     
     except Exception as e:
@@ -643,8 +660,13 @@ def build_filename(
     import os
     from collections import defaultdict
     
-    template = job_config["agent_config"]["filename_format"]
     ext = os.path.splitext(original_name)[1]
+    template = job_config.get("agent_config", {}).get("filename_format")
+
+    if not template:
+        algorithm_id = analysis.get("algorithm_id", "unknown")
+        date = analysis.get("date", "unknown")
+        return f"{algorithm_id}_{date}{ext}"
     
     # 1. Prepare raw variables from analysis (lowercase keys for matching)
     raw_vars = {k.lower(): v for k, v in analysis.items()}
