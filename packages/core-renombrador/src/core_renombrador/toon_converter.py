@@ -1,12 +1,17 @@
 """
-TOON Converter
-========================
+TOON Converter — Python data to TOON format converter.
+========================================================
 
 Generic module to convert Python data structures into TOON format.
-Módulo genérico para convertir estructuras de datos Python al formato TOON.
-
 Designed to be granular, reusable, and optimized for LLM token usage.
-Diseñado para ser granular, reutilizable y optimizado para el uso de tokens en LLMs.
+
+:created:   2025-12-05
+:filename:  toon_converter.py
+:path:      packages/core-renombrador/src/core_renombrador/toon_converter.py
+:author:    amBotHs + CENF
+:version:   2.0.0
+:license:   MIT
+:copyright: Copyright (c) 2025 CENF
 
 :created:   2025-11-28
 :filename:  toon_converter.py

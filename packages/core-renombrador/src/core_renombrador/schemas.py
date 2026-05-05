@@ -1,24 +1,17 @@
 """
-Pydantic schemas for document classification and extraction.
+Pydantic Schemas — Document classification and extraction.
+============================================================
 
-This module defines structured output schemas for Agno agents following
-best practices:
-- Clear field descriptions for AI guidance
-- Proper type hints and validation
-- Comprehensive docstrings
-- Optional fields for uncertain data
+Structured output schemas for Agno agents. output_schema should be a
+Pydantic BaseModel class (not a dict) per Agno documentation.
 
-According to Agno documentation (docs.agno.com), output_schema should be a
-Pydantic BaseModel class, not a dict. The agent converts this to JSON schema
-and passes it to the model's structured output API.
-
-Example:
-    agent = Agent(
-        model=OpenAIResponses(id="gpt-5.2"),
-        output_schema=DocumentClassification,
-    )
-    response = agent.run("Analyze this document...")
-    # response.content is a DocumentClassification object
+:created:   2025-12-05
+:filename:  schemas.py
+:path:      packages/core-renombrador/src/core_renombrador/schemas.py
+:author:    amBotHs + CENF
+:version:   2.0.0
+:license:   MIT
+:copyright: Copyright (c) 2025 CENF
 """
 
 from pydantic import BaseModel, Field

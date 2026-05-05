@@ -1,5 +1,14 @@
 """
-Pydantic models for structured outputs from Gemini via Agno
+Pydantic Models — Structured outputs for Gemini via Agno.
+==========================================================
+
+:created:   2025-12-05
+:filename:  models.py
+:path:      packages/core-renombrador/src/core_renombrador/models.py
+:author:    amBotHs + CENF
+:version:   2.0.0
+:license:   MIT
+:copyright: Copyright (c) 2025 CENF
 """
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List

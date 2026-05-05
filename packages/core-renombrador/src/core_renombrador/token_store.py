@@ -1,7 +1,17 @@
 """
-TokenStore abstract interface (Task 1.1.2) and SQLite implementation (Task 1.1.3)
+Token Store — Abstract interface and SQLite implementation.
+=============================================================
 
-Following Strict TDD: GREEN phase - Minimal implementation to pass tests
+TokenStore interface for OAuth token persistence.
+SQLiteTokenStore provides encrypted local storage.
+
+:created:   2026-04-22
+:filename:  token_store.py
+:path:      packages/core-renombrador/src/core_renombrador/token_store.py
+:author:    CENF
+:version:   1.0.0
+:license:   MIT
+:copyright: Copyright (c) 2026 CENF
 """
 import aiosqlite
 import base64
