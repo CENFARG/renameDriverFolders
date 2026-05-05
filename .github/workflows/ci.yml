@@ -1,0 +1,134 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install linting tools
+        run: pip install ruff
+
+      - name: Lint core package
+        run: ruff check packages/core-renombrador/src --ignore E501
+
+      - name: Lint API server v3
+        run: ruff check services/api-server-v3/src --ignore E501
+
+      - name: Lint worker v3
+        run: ruff check services/worker-v3/src --ignore E501
+
+  test-core:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install core package
+        run: |
+          cd packages/core-renombrador
+          pip install -e .
+          pip install pytest pytest-asyncio
+
+      - name: Test core package
+        run: |
+          cd packages/core-renombrador
+          python -m pytest tests/ -v --tb=short
+
+  test-api-v3:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -e packages/core-renombrador
+          pip install -r services/api-server-v3/requirements.txt
+          pip install pytest pytest-asyncio
+
+      - name: Test API server v3
+        run: |
+          cd services/api-server-v3
+          python -m pytest tests/ -v --tb=short
+
+  test-worker-v3:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y poppler-utils
+
+      - name: Install Python dependencies
+        run: |
+          pip install -e packages/core-renombrador
+          pip install -r services/worker-v3/requirements.txt
+          pip install pytest pytest-asyncio
+
+      - name: Test worker v3
+        run: |
+          cd services/worker-v3
+          python -m pytest tests/ -v --tb=short
+
+  file-size-check:
+    runs-on: ubuntu-latest
+    needs: [test-core, test-api-v3, test-worker-v3]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check file sizes (max 250 lines)
+        run: |
+          # Check all Python source files in v3 services and core package
+          FAILED=0
+          MAX_LINES=250
+
+          check_files() {
+            local dir="$1"
+            local label="$2"
+            while IFS= read -r file; do
+              lines=$(wc -l < "$file")
+              if [ "$lines" -gt "$MAX_LINES" ]; then
+                echo "FAIL: $file has $lines lines (max: $MAX_LINES)"
+                FAILED=1
+              fi
+            done < <(find "$dir" -name "*.py" -not -path "*/tests/*" -not -name "__init__.py" -not -name "conftest.py")
+          }
+
+          check_files "packages/core-renombrador/src" "Core"
+          check_files "services/api-server-v3/src" "API v3"
+          check_files "services/worker-v3/src" "Worker v3"
+
+          if [ "$FAILED" -eq 1 ]; then
+            echo ""
+            echo "Some files exceed the 250-line limit."
+            exit 1
+          fi
+          echo "All files within 250-line limit."
