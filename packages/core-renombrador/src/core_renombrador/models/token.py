@@ -10,7 +10,7 @@ Token Data — OAuth token Pydantic model.
 :license:   MIT
 :copyright: Copyright (c) 2026 CENF
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List
 
 from pydantic import BaseModel, field_validator
@@ -44,6 +44,7 @@ class TokenData(BaseModel):
     @classmethod
     def expires_at_must_be_in_future(cls, v: datetime) -> datetime:
         """Validate that expires_at is in the future"""
-        if v <= datetime.now():
+        now = datetime.now(v.tzinfo) if v.tzinfo else datetime.now()
+        if v <= now:
             raise ValueError("expires_at must be in the future")
         return v
