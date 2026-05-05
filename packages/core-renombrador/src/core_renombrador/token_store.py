@@ -195,6 +195,8 @@ class SQLiteTokenStore(TokenStore):
         db = await self._get_connection()
         await db.execute("""
             INSERT OR REPLACE INTO oauth_tokens
+                (user_id, access_token, refresh_token, token_type,
+                 expires_at, scope, email, issued_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             user_id,
@@ -226,11 +228,6 @@ class SQLiteTokenStore(TokenStore):
         )
         await db.commit()
 
-        # Close connection if not in-memory
+        # Close connection only for file-based DBs
         if self.db_path != ":memory:":
             await db.close()
-
-        # Also close connection for in-memory if needed
-        if self.db_path == ":memory:" and self._conn is not None:
-            await self._conn.close()
-            self._conn = None
