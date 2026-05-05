@@ -878,9 +878,8 @@ async def process_scheduled_jobs(request: Request):
     No OAuth required (service-to-service).
     """
     logger.info("Scheduled jobs trigger received")
-
+    
     # Verify OIDC token from Cloud Scheduler
-    from auth import verify_scheduler_token
     verify_scheduler_token(request)
     
     # Get all active scheduled jobs from database
