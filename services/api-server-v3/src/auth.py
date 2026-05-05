@@ -86,3 +86,62 @@ def verify_scheduler_token(request: Request) -> dict:
 
     logger.info(f"Scheduler token verified for: {payload.get('email', 'unknown')}")
     return payload
+
+
+def verify_auth(request: Request) -> dict:
+    """
+    Unified authentication: IAP priority, OAuth fallback.
+
+    Checks for IAP token first (Cloud Run), then falls back
+    to Google OAuth2 token verification.
+
+    Args:
+        request: FastAPI Request object.
+
+    Returns:
+        User info dict with email and name.
+
+    Raises:
+        HTTPException 401: If no valid auth found.
+    """
+    # Try IAP first
+    iap_token = request.headers.get("X-Goog-Iap-Jwt-Assertion")
+    if iap_token:
+        try:
+            payload = id_token.verify_oauth2_token(
+                iap_token,
+                google_requests.Request(),
+                audience=os.environ.get("API_AUDIENCE", ""),
+            )
+            email = payload.get("email", "")
+            if email:
+                return {"email": email, "name": payload.get("name", email)}
+        except Exception:
+            pass
+
+    # Fallback: Bearer token
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    parts = auth_header.split()
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        raise HTTPException(status_code=401, detail="Invalid Authorization header")
+
+    token = parts[1]
+    try:
+        payload = id_token.verify_oauth2_token(
+            token, google_requests.Request(), audience=None
+        )
+        email = payload.get("email", "")
+        if not email:
+            raise HTTPException(status_code=401, detail="Token has no email")
+        return {"email": email, "name": payload.get("name", email)}
+    except Exception as e:
+        logger.warning(f"OAuth token verification failed: {e}")
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+
+def get_current_user(request: Request) -> dict:
+    """Dependency wrapper for verify_auth."""
+    return verify_auth(request)
