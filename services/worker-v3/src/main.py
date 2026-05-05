@@ -501,31 +501,11 @@ def process_folder_files(
                 prompt = job_config["agent_config"]["prompt_template"]
                 prompt = prompt.replace("{original_filename}", file["name"])
                 prompt = prompt.replace("{file_content}", content[:8000])
-                
-                # LOG COMPLETO DEL PROMPT
-                print("\n" + "="*80)
-                print("PROMPT SENT TO GEMINI:")
-                print("="*80)
-                print(prompt[:2000])  # Primeros 2000 chars
-                print("..." if len(prompt) > 2000 else "")
-                print("="*80 + "\n")
-                
+
                 logger.info(f"Sending prompt to Gemini for {file['name']} (prompt length: {len(prompt)} chars)")
-                
+
                 response = agent.run(prompt)
-                
-                # LOG COMPLETO DE LA RESPUESTA
-                print("\n" + "="*80)
-                print("RAW RESPONSE FROM GEMINI:")
-                print("="*80)
-                print(f"Type: {type(response)}")
-                print(f"Has .content: {hasattr(response, 'content')}")
-                if hasattr(response, 'content'):
-                    print(f"Content type: {type(response.content)}")
-                    print(f"Content: {response.content}")
-                print(f"Response repr: {repr(response)[:500]}")
-                print("="*80 + "\n")
-                
+
                 logger.info(f"Gemini response received for {file['name']}")
 
                 # ============================================================
