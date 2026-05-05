@@ -30,8 +30,11 @@ COPY services/worker-renombrador/src ./src
 COPY services/worker-renombrador/config ./config
 
 # Limpiar archivos Python compilados para asegurar código fresco
+# FIX DOCKER CACHE: Limpiar tanto src como packages/core-renombrador
 RUN find /app/src -type f -name "*.pyc" -delete && \
-    find /app/src -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+    find /app/src -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true && \
+    find /app/packages -type f -name "*.pyc" -delete && \
+    find /app/packages -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 
 RUN mkdir -p /app/data && chown -R appuser:appuser /app
 

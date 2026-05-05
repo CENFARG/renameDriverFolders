@@ -16,11 +16,11 @@ export class ApiService {
         private http: HttpClient,
         private authService: AuthService
     ) {
-        // DEBUG: Log environment info
-        console.log('🔍 ApiService initialized');
-        console.log('🌍 Environment production:', environment.production);
-        console.log('🔗 API URL configured:', this.apiUrl);
-        console.log('📋 Full environment:', environment);
+        // Environment logged only in development
+        if (!environment.production) {
+            console.log('🔍 ApiService initialized');
+            console.log('🔗 API URL:', this.apiUrl);
+        }
     }
 
     submitJob(job: Job, accessToken: string): Observable<JobResponse> {

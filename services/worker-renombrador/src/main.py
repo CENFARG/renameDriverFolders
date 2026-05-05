@@ -479,12 +479,28 @@ def process_folder_files(
                 # Extract content (with OCR if needed)
                 content = content_extractor.get_content(file["name"], file_bytes)
                 logger.info(f"Extracted content length: {len(content)} chars for {file['name']}")
-                
-                # Analyze with agent
-                prompt = job_config["agent_config"]["prompt_template"].format(
-                    original_filename=file["name"],
-                    file_content=content[:8000]  # Limit content
-                )
+
+                # DEBUG: Log job_config structure BEFORE using it
+                logger.info(f"DEBUG: job_config type = {type(job_config)}")
+                logger.info(f"DEBUG: job_config keys = {job_config.keys() if isinstance(job_config, dict) else 'NOT A DICT'}")
+                if "agent_config" in job_config:
+                    logger.info(f"DEBUG: agent_config type = {type(job_config['agent_config'])}")
+                    logger.info(f"DEBUG: agent_config keys = {job_config['agent_config'].keys() if isinstance(job_config['agent_config'], dict) else 'NOT A DICT'}")
+                    if "prompt_template" in job_config["agent_config"]:
+                        prompt_template = job_config["agent_config"]["prompt_template"]
+                        logger.info(f"DEBUG: prompt_template type = {type(prompt_template)}")
+                        logger.info(f"DEBUG: prompt_template value (first 500 chars) = {str(prompt_template)[:500] if not isinstance(prompt_template, str) else prompt_template[:500]}")
+                    else:
+                        logger.error(f"DEBUG: 'prompt_template' NOT FOUND in agent_config! Keys: {job_config['agent_config'].keys()}")
+                else:
+                    logger.error(f"DEBUG: 'agent_config' NOT FOUND in job_config! Keys: {job_config.keys()}")
+
+                # Analyze with agent — use str.replace() instead of .format()
+                # because prompt_template contains JSON schemas with { } braces
+                # that .format() would misinterpret as placeholders
+                prompt = job_config["agent_config"]["prompt_template"]
+                prompt = prompt.replace("{original_filename}", file["name"])
+                prompt = prompt.replace("{file_content}", content[:8000])
                 
                 # LOG COMPLETO DEL PROMPT
                 print("\n" + "="*80)
@@ -539,7 +555,8 @@ def process_folder_files(
                 logger.info(f"Renamed: {file['name']} -> {new_name}")
                 
             except Exception as e:
-                logger.error(f"Error processing file {file['name']}: {e}")
+                logger.error(f"Error processing file {file['name']}: {e}", exc_info=True)
+                logger.error(f"Full exception details:", exc_info=True)
                 stats["errors"] += 1
     
     except Exception as e:
@@ -567,43 +584,38 @@ def download_file(drive_service, file_id: str) -> bytes:
 
 def parse_agent_response(response) -> Dict[str, Any]:
     """
-    Parse agent response to extract structured data.
-    
-    With Agno's output_schema (Pydantic), the response should already be a Pydantic model.
-    This function now simply converts it to dict.
-    
-    UPDATED: Simplified since Agno guarantees structured Pydantic output.
+    Parse Agno agent response to extract structured data.
+
+    Agno returns a RunResponse object with .content attribute.
+    The .content should be the Pydantic model (DocumentClassification).
+
+    FIXED: Check for .content FIRST, then handle Pydantic models.
     """
     logger.debug(f"Parsing agent response. Type: {type(response)}")
-    
-    # Check if response has Pydantic model_dump() method (Pydantic v2)
-    if hasattr(response, 'model_dump'):
-        result = response.model_dump()
-        logger.debug(f"Successfully converted Pydantic model to dict: {result}")
-        return result
-    
-    # Check if response has dict() method (Pydantic v1)
-    if hasattr(response, 'dict'):
-        result = response.dict()
-        logger.debug(f"Successfully converted Pydantic model to dict (v1): {result}")
-        return result
-    
-    # If response has .content attribute
+
+    # CRITICAL FIX: Agno returns RunResponse, not Pydantic model directly
+    # The Pydantic model is in .content
     if hasattr(response, "content"):
         content = response.content
         logger.debug(f"Response has .content attribute. Type: {type(content)}")
-        
-        # If content is already a Pydantic model
-        if hasattr(content, 'model_dump'):
+
+        # If content is a Pydantic model (has model_dump)
+        if hasattr(content, 'model_dump') and callable(content.model_dump):
             result = content.model_dump()
             logger.debug(f"Converted content Pydantic model to dict: {result}")
             return result
-        
-        # If content is a dict
+
+        # If content is a Pydantic model v1 (has dict)
+        if hasattr(content, 'dict') and callable(content.dict):
+            result = content.dict()
+            logger.debug(f"Converted content Pydantic v1 model to dict: {result}")
+            return result
+
+        # If content is already a dict
         if isinstance(content, dict):
             logger.debug(f"Content is already a dict: {content}")
             return content
-        
+
         # If content is a string, try to parse as JSON (fallback)
         if isinstance(content, str):
             logger.warning(f"Content is string, attempting JSON parse: {content[:200]}...")
@@ -618,11 +630,22 @@ def parse_agent_response(response) -> Dict[str, Any]:
                 return result
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to parse JSON: {e}. Content: {content[:500]}")
-                return {"date": "2025-01-01", "keywords": ["documento"]}
-    
+                # Return fallback with error info
+                return {
+                    "algorithm_id": "unknown",
+                    "date": "2025-01-01",
+                    "confidence": 0.0,
+                    "reasoning": f"JSON parse error: {str(e)[:100]}"
+                }
+
     # Last resort fallback
     logger.error(f"Unable to parse response. Type: {type(response)}. Using fallback values.")
-    return {"date": "2025-01-01", "keywords": ["documento"]}
+    return {
+        "algorithm_id": "unknown",
+        "date": "2025-01-01",
+        "confidence": 0.0,
+        "reasoning": "Unable to parse response - no .content attribute"
+    }
 
 
 def build_filename(
@@ -637,8 +660,13 @@ def build_filename(
     import os
     from collections import defaultdict
     
-    template = job_config["agent_config"]["filename_format"]
     ext = os.path.splitext(original_name)[1]
+    template = job_config.get("agent_config", {}).get("filename_format")
+
+    if not template:
+        algorithm_id = analysis.get("algorithm_id", "unknown")
+        date = analysis.get("date", "unknown")
+        return f"{algorithm_id}_{date}{ext}"
     
     # 1. Prepare raw variables from analysis (lowercase keys for matching)
     raw_vars = {k.lower(): v for k, v in analysis.items()}

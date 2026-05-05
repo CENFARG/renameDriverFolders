@@ -30,6 +30,13 @@ dependencies = [
     "cryptography>=41.0.0",  # Token encryption at rest
 ]
 
+[dependency-groups]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "pytest-asyncio>=0.21.0",
+]
+
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
