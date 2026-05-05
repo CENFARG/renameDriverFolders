@@ -1,0 +1,44 @@
+# services/worker-v3/Dockerfile.build
+# This Dockerfile is used by Cloud Build from the project root
+
+FROM python:3.11-slim
+
+# Instalar dependencias del sistema para pdf2image (soporte OCR)
+RUN apt-get update && apt-get install -y \
+    poppler-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Crear virtual environment
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Copiar requirements y core package
+COPY packages/core-renombrador /app/packages/core-renombrador
+COPY services/worker-v3/requirements.txt .
+
+# Instalar todo en un solo comando para resolver dependencias correctamente
+RUN pip install --no-cache-dir /app/packages/core-renombrador -r requirements.txt
+
+# Crear usuario no-root
+RUN adduser --system --group appuser
+RUN chown -R appuser:appuser /app /opt/venv
+
+# Copiar código del worker v3
+COPY services/worker-v3/src ./src
+
+# Limpiar archivos Python compilados
+RUN find /app/src -type f -name "*.pyc" -delete && \
+    find /app/src -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true && \
+    find /app/packages -type f -name "*.pyc" -delete && \
+    find /app/packages -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+
+RUN mkdir -p /app/data && chown -R appuser:appuser /app
+
+# Switch al usuario no-root
+USER appuser
+
+EXPOSE 8080
+
+CMD ["/opt/venv/bin/python", "-m", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8080"]
