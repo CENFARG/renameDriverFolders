@@ -1,5 +1,6 @@
 """Tests for SQLiteTokenStore implementation"""
 
+import os
 import pytest
 import asyncio
 from datetime import datetime, timedelta
@@ -9,14 +10,12 @@ from core_renombrador.models.token import TokenData
 
 
 @pytest.fixture
-async def sqlite_store():
-    """Create a SQLiteTokenStore instance for testing"""
-    # Use in-memory database for tests
-    store = SQLiteTokenStore(":memory:")
+async def sqlite_store(tmp_path):
+    """Create a SQLiteTokenStore instance for testing with a temp file."""
+    db_file = str(tmp_path / "test_tokens.db")
+    store = SQLiteTokenStore(db_file)
     await store.init_db()
     yield store
-    # Cleanup: Close connection if needed
-    # Note: In-memory DB is automatically cleaned up
 
 
 @pytest.fixture
