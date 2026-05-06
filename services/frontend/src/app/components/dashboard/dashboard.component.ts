@@ -95,6 +95,7 @@ export class DashboardComponent {
 
     const job = { folder_id: this.folderId, job_type: this.jobType };
     const token = this.authService.getToken();
+    if (!token) return;
 
     this.apiService.submitJob(job, token).subscribe({
       next: (response: any) => {
