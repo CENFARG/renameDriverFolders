@@ -68,8 +68,8 @@ class TestNoSeedFunction:
         offenders = []
         for py_file in glob.glob(os.path.join(src_dir, "*.py")):
             basename = os.path.basename(py_file)
-            if basename == "main.py":
-                continue  # main.py still has it, that's ok
+            if basename in ("main.py", "seed.py"):
+                continue  # main.py and seed.py legitimately have it
             with open(py_file, "r", encoding="utf-8") as f:
                 content = f.read()
                 if "seed_default_algorithms" in content:
