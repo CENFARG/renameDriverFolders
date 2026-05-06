@@ -39,14 +39,14 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: pip
 
-      - name: Install test dependencies
-        run: pip install -r packages/core-renombrador/requirements-test.txt
+      - name: Install core package with deps
+        run: pip install -e packages/core-renombrador
+        timeout-minutes: 10
 
-      - name: Install core package (no heavy deps)
-        run: |
-          cd packages/core-renombrador
-          pip install -e . --no-deps
+      - name: Install test runner
+        run: pip install pytest pytest-asyncio
 
       - name: Test core package
         run: |
@@ -63,12 +63,14 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: pip
 
-      - name: Install test dependencies
-        run: pip install -r services/api-server-v3/requirements-test.txt
+      - name: Install core package with deps
+        run: pip install -e packages/core-renombrador
+        timeout-minutes: 10
 
-      - name: Install core package (no heavy deps)
-        run: pip install -e packages/core-renombrador --no-deps
+      - name: Install test runner
+        run: pip install pytest pytest-asyncio
 
       - name: Test API server v3
         run: |
@@ -85,12 +87,14 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: pip
 
-      - name: Install test dependencies
-        run: pip install -r services/worker-v3/requirements-test.txt
+      - name: Install core package with deps
+        run: pip install -e packages/core-renombrador
+        timeout-minutes: 10
 
-      - name: Install core package (no heavy deps)
-        run: pip install -e packages/core-renombrador --no-deps
+      - name: Install test runner
+        run: pip install pytest pytest-asyncio
 
       - name: Test worker v3
         run: |
