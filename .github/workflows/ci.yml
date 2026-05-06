@@ -123,7 +123,7 @@ jobs:
                 echo "FAIL: $file has $lines lines (max: $MAX_LINES)"
                 FAILED=1
               fi
-            done < <(find "$dir" -name "*.py" -not -path "*/tests/*" -not -name "__init__.py" -not -name "conftest.py" -not -name "main.py")
+            done < <(find "$dir" -name "*.py" -not -path "*/tests/*" -not -name "__init__.py" -not -name "conftest.py")
           }
 
           check_files "packages/core-renombrador/src"
