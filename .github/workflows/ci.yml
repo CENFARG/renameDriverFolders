@@ -40,11 +40,13 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install core package
+      - name: Install test dependencies
+        run: pip install -r packages/core-renombrador/requirements-test.txt
+
+      - name: Install core package (no heavy deps)
         run: |
           cd packages/core-renombrador
-          pip install -e .
-          pip install pytest pytest-asyncio
+          pip install -e . --no-deps
 
       - name: Test core package
         run: |
@@ -62,11 +64,11 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
-        run: |
-          pip install -e packages/core-renombrador
-          pip install -r services/api-server-v3/requirements.txt
-          pip install pytest pytest-asyncio
+      - name: Install test dependencies
+        run: pip install -r services/api-server-v3/requirements-test.txt
+
+      - name: Install core package (no heavy deps)
+        run: pip install -e packages/core-renombrador --no-deps
 
       - name: Test API server v3
         run: |
@@ -84,14 +86,11 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y poppler-utils
+      - name: Install test dependencies
+        run: pip install -r services/worker-v3/requirements-test.txt
 
-      - name: Install Python dependencies
-        run: |
-          pip install -e packages/core-renombrador
-          pip install -r services/worker-v3/requirements.txt
-          pip install pytest pytest-asyncio
+      - name: Install core package (no heavy deps)
+        run: pip install -e packages/core-renombrador --no-deps
 
       - name: Test worker v3
         run: |
@@ -106,13 +105,11 @@ jobs:
 
       - name: Check file sizes (max 250 lines)
         run: |
-          # Check all Python source files in v3 services and core package
           FAILED=0
           MAX_LINES=250
 
           check_files() {
             local dir="$1"
-            local label="$2"
             while IFS= read -r file; do
               lines=$(wc -l < "$file")
               if [ "$lines" -gt "$MAX_LINES" ]; then
@@ -122,9 +119,9 @@ jobs:
             done < <(find "$dir" -name "*.py" -not -path "*/tests/*" -not -name "__init__.py" -not -name "conftest.py")
           }
 
-          check_files "packages/core-renombrador/src" "Core"
-          check_files "services/api-server-v3/src" "API v3"
-          check_files "services/worker-v3/src" "Worker v3"
+          check_files "packages/core-renombrador/src"
+          check_files "services/api-server-v3/src"
+          check_files "services/worker-v3/src"
 
           if [ "$FAILED" -eq 1 ]; then
             echo ""

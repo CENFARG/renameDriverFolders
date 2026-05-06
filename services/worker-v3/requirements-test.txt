@@ -1,0 +1,4 @@
+# Minimal test dependencies for Worker v3 CI
+pydantic>=2.0
+pytest>=7.0
+pytest-asyncio>=0.21
