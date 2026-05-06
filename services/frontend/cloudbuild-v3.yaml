@@ -1,0 +1,40 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '--no-cache'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/renombradorarchivosgdrive-frontend-v3:$COMMIT_SHA'
+      - '-f'
+      - 'Dockerfile'
+      - '.'
+    dir: 'services/frontend'
+    timeout: 600s
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/renombradorarchivosgdrive-frontend-v3:$COMMIT_SHA'
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'renombradorarchivosgdrive-frontend-v3'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/renombradorarchivosgdrive-frontend-v3:$COMMIT_SHA'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--max-instances'
+      - '1'
+      - '--service-account'
+      - '702567224563-compute@developer.gserviceaccount.com'
+
+images:
+  - 'gcr.io/$PROJECT_ID/renombradorarchivosgdrive-frontend-v3:$COMMIT_SHA'
+
+timeout: 600s
