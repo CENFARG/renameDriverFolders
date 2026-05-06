@@ -40,13 +40,14 @@ jobs:
         with:
           python-version: '3.11'
           cache: pip
+          cache-dependency-path: packages/core-renombrador/requirements-test.txt
 
-      - name: Install core package with deps
-        run: pip install -e packages/core-renombrador
+      - name: Install test dependencies
+        run: pip install -r packages/core-renombrador/requirements-test.txt
         timeout-minutes: 10
 
-      - name: Install test runner
-        run: pip install pytest pytest-asyncio
+      - name: Install core package (no deps)
+        run: pip install -e packages/core-renombrador --no-deps
 
       - name: Test core package
         run: |
@@ -64,13 +65,14 @@ jobs:
         with:
           python-version: '3.11'
           cache: pip
+          cache-dependency-path: services/api-server-v3/requirements-test.txt
 
-      - name: Install core package with deps
-        run: pip install -e packages/core-renombrador
+      - name: Install test dependencies
+        run: pip install -r services/api-server-v3/requirements-test.txt
         timeout-minutes: 10
 
-      - name: Install test runner
-        run: pip install pytest pytest-asyncio
+      - name: Install core package (no deps)
+        run: pip install -e packages/core-renombrador --no-deps
 
       - name: Test API server v3
         run: |
@@ -88,13 +90,14 @@ jobs:
         with:
           python-version: '3.11'
           cache: pip
+          cache-dependency-path: services/worker-v3/requirements-test.txt
 
-      - name: Install core package with deps
-        run: pip install -e packages/core-renombrador
+      - name: Install test dependencies
+        run: pip install -r services/worker-v3/requirements-test.txt
         timeout-minutes: 10
 
-      - name: Install test runner
-        run: pip install pytest pytest-asyncio
+      - name: Install core package (no deps)
+        run: pip install -e packages/core-renombrador --no-deps
 
       - name: Test worker v3
         run: |

@@ -1,4 +1,4 @@
-# Minimal test dependencies for API server v3 CI
+# Test dependencies for API server v3 CI
 pydantic>=2.0
 pytest>=7.0
 pytest-asyncio>=0.21
@@ -8,3 +8,9 @@ aiosqlite>=0.19
 cryptography>=41.0
 agno>=1.0
 google-auth>=2.0
+google-api-python-client>=2.0
+beautifulsoup4>=4.0
+pypdf>=3.0
+Pillow>=10.0
+openpyxl>=3.0
+python-docx>=0.8
