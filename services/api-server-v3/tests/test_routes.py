@@ -97,8 +97,10 @@ class TestJobsRoutes:
         app = FastAPI()
         app.include_router(router)
 
-        with patch("routes.jobs.db_manager") as mock_db:
+        with patch("routes.jobs.db_manager") as mock_db, \
+             patch("routes.jobs.algorithms_manager") as mock_algo:
             mock_db.find_all.return_value = []
+            mock_algo.find_all.return_value = []
             client = TestClient(app)
             response = client.get("/api/v1/jobs")
             assert response.status_code == 200
