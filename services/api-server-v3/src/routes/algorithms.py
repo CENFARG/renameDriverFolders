@@ -13,7 +13,7 @@ Algorithms Routes — Document classification algorithms.
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 
 logger = logging.getLogger(__name__)
 

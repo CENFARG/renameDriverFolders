@@ -11,7 +11,6 @@ Health Routes — Health check and config endpoints.
 :copyright: Copyright (c) 2026 CENF
 """
 
-import os
 
 from fastapi import APIRouter
 

@@ -20,7 +20,6 @@ import os
 from google.cloud import secretmanager
 
 from core_renombrador.config_manager import ConfigManager
-from core_renombrador.logger_manager import LoggerManager
 from core_renombrador.database_manager import DatabaseManager
 from core_renombrador.file_manager import FileManager
 

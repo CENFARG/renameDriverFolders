@@ -35,7 +35,6 @@ import docx
 import openpyxl
 from google.cloud import vision
 from pdf2image import convert_from_bytes
-from PIL import Image
 from pypdf import PdfReader
 
 logger = logging.getLogger(__name__)

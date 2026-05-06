@@ -24,10 +24,10 @@ jobs:
         run: ruff check packages/core-renombrador/src --ignore E501
 
       - name: Lint API server v3
-        run: ruff check services/api-server-v3/src --ignore E501
+        run: ruff check services/api-server-v3/src --ignore E501,E402
 
       - name: Lint worker v3
-        run: ruff check services/worker-v3/src --ignore E501
+        run: ruff check services/worker-v3/src --ignore E501,E402
 
   test-core:
     runs-on: ubuntu-latest

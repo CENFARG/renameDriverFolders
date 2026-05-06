@@ -108,7 +108,7 @@ class AgentBuilder:
             return DocumentClassification
 
         logger.warning("DocumentClassification not available, creating dynamic model")
-        from pydantic import BaseModel, create_model, ConfigDict
+        from pydantic import create_model, ConfigDict
 
         fields = {}
         type_map = {"str": str, "int": int, "float": float, "bool": bool, "list": list, "dict": dict}

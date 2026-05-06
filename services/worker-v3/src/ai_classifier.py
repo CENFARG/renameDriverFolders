@@ -53,13 +53,13 @@ def parse_agent_response(response) -> Dict[str, Any]:
     # Pydantic v2: has model_dump()
     if hasattr(content, "model_dump") and callable(content.model_dump):
         result = content.model_dump()
-        logger.debug(f"Converted Pydantic v2 model to dict")
+        logger.debug("Converted Pydantic v2 model to dict")
         return result
 
     # Pydantic v1: has dict()
     if hasattr(content, "dict") and callable(content.dict):
         result = content.dict()
-        logger.debug(f"Converted Pydantic v1 model to dict")
+        logger.debug("Converted Pydantic v1 model to dict")
         return result
 
     # Already a dict
@@ -87,7 +87,7 @@ def _parse_json_string(content: str) -> Dict[str, Any]:
 
     try:
         result = json.loads(text.strip())
-        logger.info(f"Successfully parsed JSON from string")
+        logger.info("Successfully parsed JSON from string")
         return result
     except json.JSONDecodeError as e:
         logger.error(f"Failed to parse JSON: {e}. Content: {content[:500]}")

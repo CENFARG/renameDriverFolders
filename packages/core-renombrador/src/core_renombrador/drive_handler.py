@@ -19,10 +19,9 @@ import os
 import json
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Optional
 
 from google.cloud import storage
-from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
 import google.generativeai as genai

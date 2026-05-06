@@ -16,7 +16,6 @@ Google Cloud credentials, feature flags, and database manager setup.
 
 import logging
 import os
-from typing import Optional
 
 import google.auth
 from google.cloud import secretmanager

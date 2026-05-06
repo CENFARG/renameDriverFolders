@@ -10,7 +10,7 @@ Token Data — OAuth token Pydantic model.
 :license:   MIT
 :copyright: Copyright (c) 2026 CENF
 """
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import List
 
 from pydantic import BaseModel, field_validator

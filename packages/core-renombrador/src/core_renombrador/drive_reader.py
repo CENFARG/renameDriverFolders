@@ -14,11 +14,9 @@ from Google Drive. Read-only operations that don't modify files.
 :copyright: Copyright (c) 2026 CENF
 """
 
-import json
 import logging
 from io import BytesIO
-from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from google.cloud import storage
 from googleapiclient.errors import HttpError
@@ -26,7 +24,6 @@ from googleapiclient.http import MediaIoBaseDownload
 
 from .content_extractor import ContentExtractor
 from .config_manager import ConfigManager
-from .logger_manager import LoggerManager
 
 logger = logging.getLogger(__name__)
 

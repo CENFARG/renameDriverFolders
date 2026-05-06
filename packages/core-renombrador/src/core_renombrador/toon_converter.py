@@ -23,7 +23,7 @@ Designed to be granular, reusable, and optimized for LLM token usage.
 """
 
 import datetime
-from typing import Any, Dict, List, Union, Optional
+from typing import Any, Dict, List, Optional
 
 def _escape_string(s: str) -> str:
     """

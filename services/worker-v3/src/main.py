@@ -22,8 +22,6 @@ from fastapi import FastAPI, Request, HTTPException
 from contextlib import asynccontextmanager
 from pydantic import BaseModel
 import google.auth
-from google.oauth2 import service_account
-from google.cloud import storage
 from google.cloud import secretmanager
 from googleapiclient.discovery import build
 
@@ -32,8 +30,7 @@ from core_renombrador.config_manager import ConfigManager
 from core_renombrador.logger_manager import LoggerManager
 from core_renombrador.database_manager import DatabaseManager
 from core_renombrador.file_manager import FileManager
-from core_renombrador.agent_factory import AgentFactory, create_document_agent
-from core_renombrador.drive_handler import DriveHandler
+from core_renombrador.agent_factory import AgentFactory
 from core_renombrador.content_extractor import ContentExtractor
 
 def get_secret(secret_id: str) -> str:
@@ -148,7 +145,7 @@ async def lifespan(app: FastAPI):
     Life span of the application.
     """
     logger.info("Worker Version: v2-00016 (Fix Extra Fields - ConfigDict)")
-    logger.info(f"Starting Worker... Config loaded.")
+    logger.info("Starting Worker... Config loaded.")
     
     # Initialize things here if needed
     yield
@@ -318,7 +315,6 @@ def process_job(
 
         # Initialize Drive service
         drive_service = build("drive", "v3", credentials=credentials)
-        storage_client = storage.Client(credentials=credentials)
 
         # Process files
         stats = {
@@ -336,7 +332,7 @@ def process_job(
             # MODO MANUAL: Ignorar target_folder_names, procesar TODO
             # ============================================================
             logger.info(f"✅ MANUAL MODE: Processing ALL files in selected folder: {target_folder_id}")
-            logger.info(f"🚫 MANUAL MODE: Ignoring target_folder_names from job_config")
+            logger.info("🚫 MANUAL MODE: Ignoring target_folder_names from job_config")
             folders_to_process = [target_folder_id]
 
         else:
@@ -536,7 +532,7 @@ def process_folder_files(
                 
             except Exception as e:
                 logger.error(f"Error processing file {file['name']}: {e}", exc_info=True)
-                logger.error(f"Full exception details:", exc_info=True)
+                logger.error("Full exception details:", exc_info=True)
                 stats["errors"] += 1
     
     except Exception as e:

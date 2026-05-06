@@ -25,8 +25,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from pydantic import BaseModel, validator
 from google.cloud import tasks_v2, secretmanager
-from google.oauth2 import id_token
-from google.auth.transport import requests as google_requests
 from dotenv import load_dotenv
 
 # Load .env for local development
@@ -38,8 +36,7 @@ from core_renombrador.logger_manager import LoggerManager
 from core_renombrador.database_manager import DatabaseManager
 from core_renombrador.file_manager import FileManager
 from core_renombrador.oauth_security import (
-    OAuthSecurityManager,
-    create_oauth_manager_from_config
+    OAuthSecurityManager
 )
 
 # --- Initialization ---
@@ -235,7 +232,7 @@ try:
             allowed_emails=[e.strip() for e in allowed_emails if e.strip()],
             require_domain_match=True
         )
-        logger.info(f"OAuth Security Manager initialized:")
+        logger.info("OAuth Security Manager initialized:")
         logger.info(f"  - Domains: {allowed_domains}")
         logger.info(f"  - Specific emails: {allowed_emails if allowed_emails else 'None'}")
     else:
@@ -416,7 +413,7 @@ def create_cloud_task(payload: dict) -> str:
     logger.info(f"✅ tasks_client initialized: {type(tasks_client)}")
 
     if not all([GCP_PROJECT, GCP_LOCATION, TASKS_QUEUE, WORKER_URL]):
-        logger.error(f"❌ Cloud Tasks configuration incomplete:")
+        logger.error("❌ Cloud Tasks configuration incomplete:")
         logger.error(f"   GCP_PROJECT: {GCP_PROJECT}")
         logger.error(f"   GCP_LOCATION: {GCP_LOCATION}")
         logger.error(f"   TASKS_QUEUE: {TASKS_QUEUE}")
@@ -425,14 +422,14 @@ def create_cloud_task(payload: dict) -> str:
             status_code=500,
             detail="Cloud Tasks configuration incomplete"
         )
-    logger.info(f"✅ Cloud Tasks config validated:")
+    logger.info("✅ Cloud Tasks config validated:")
     logger.info(f"   GCP_PROJECT: {GCP_PROJECT}")
     logger.info(f"   GCP_LOCATION: {GCP_LOCATION}")
     logger.info(f"   TASKS_QUEUE: {TASKS_QUEUE}")
     logger.info(f"   WORKER_URL: {WORKER_URL}")
 
     # Build task
-    logger.info(f"📦 Building task with payload")
+    logger.info("📦 Building task with payload")
 
     # Sanitize payload for logging (don't log access tokens)
     sanitized_payload = sanitize_payload(payload)
@@ -447,7 +444,7 @@ def create_cloud_task(payload: dict) -> str:
             "body": json.dumps(payload).encode(),
         }
     }
-    logger.info(f"✅ Task structure created:")
+    logger.info("✅ Task structure created:")
     logger.info(f"   http_method: {task['http_request']['http_method']}")
     logger.info(f"   url: {task['http_request']['url']}")
     logger.info(f"   headers: {task['http_request']['headers']}")
@@ -467,12 +464,12 @@ def create_cloud_task(payload: dict) -> str:
         "service_account_email": worker_sa,
         "audience": WORKER_URL
     }
-    logger.info(f"✅ OIDC Token configured:")
+    logger.info("✅ OIDC Token configured:")
     logger.info(f"   service_account_email: {task['http_request']['oidc_token']['service_account_email']}")
     logger.info(f"   audience: {task['http_request']['oidc_token']['audience']}")
 
     # Log the full task structure (be careful with sensitive data)
-    logger.info(f"📋 Full task structure (JSON):")
+    logger.info("📋 Full task structure (JSON):")
     logger.info(f"{json.dumps(task, indent=2, default=str)}")
 
     # Create task
@@ -489,7 +486,7 @@ def create_cloud_task(payload: dict) -> str:
         logger.info("   Sending request to Cloud Tasks API...")
         response = tasks_client.create_task(request={"parent": parent, "task": task})
 
-        logger.info(f"✅ Cloud Tasks API response received")
+        logger.info("✅ Cloud Tasks API response received")
         logger.info(f"   response type: {type(response)}")
         logger.info(f"   response.name: {response.name}")
 
@@ -500,7 +497,7 @@ def create_cloud_task(payload: dict) -> str:
         return task_id
 
     except Exception as e:
-        logger.error(f"❌ ERROR in tasks_client.create_task():")
+        logger.error("❌ ERROR in tasks_client.create_task():")
         logger.error(f"   Exception type: {type(e).__name__}")
         logger.error(f"   Exception message: {str(e)}")
         logger.error(f"   Exception args: {e.args}")

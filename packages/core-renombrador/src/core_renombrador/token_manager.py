@@ -18,7 +18,7 @@ async operations or encryption details.
 import asyncio
 import logging
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Optional
 
 from .models.token import TokenData
