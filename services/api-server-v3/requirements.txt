@@ -1,0 +1,30 @@
+# API Server - Dependencies
+# Updated: 2025-12-09
+
+# Core framework
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.0.0
+
+# Google Cloud
+google-cloud-tasks>=2.14.0
+google-auth>=2.25.0
+google-auth-httplib2>=0.1.1
+google-cloud-secret-manager>=2.16.0
+google-cloud-storage>=2.13.0
+
+python-dotenv>=1.0.0
+
+# Testing (STRICT TDD MODE)
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
+httpx>=0.24.0  # For testing FastAPI endpoints
+coverage>=7.3.0
+
+# Quality tools
+ruff>=0.1.0  # Linter and formatter (fast, replaces pylint/black)
+mypy>=1.7.0  # Type checker
+
+# The core_renombrador package (installed via Dockerfile)
+# Includes: config_manager, logger_manager, database_manager, oauth_security, etc.

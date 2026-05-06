@@ -1,7 +1,14 @@
 """
-TokenData model for OAuth token management (Task 1.1.1)
+Token Data — OAuth token Pydantic model.
+==========================================
 
-Following Strict TDD: GREEN phase - Minimal implementation to pass tests
+:created:   2026-04-22
+:filename:  token.py
+:path:      packages/core-renombrador/src/core_renombrador/models/token.py
+:author:    CENF
+:version:   1.0.0
+:license:   MIT
+:copyright: Copyright (c) 2026 CENF
 """
 from datetime import datetime
 from typing import List
@@ -37,6 +44,7 @@ class TokenData(BaseModel):
     @classmethod
     def expires_at_must_be_in_future(cls, v: datetime) -> datetime:
         """Validate that expires_at is in the future"""
-        if v <= datetime.now():
+        now = datetime.now(v.tzinfo) if v.tzinfo else datetime.now()
+        if v <= now:
             raise ValueError("expires_at must be in the future")
         return v

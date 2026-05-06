@@ -1,15 +1,17 @@
 """
-DocumentationManager
-========================
+Documentation Manager — Markdown documentation generation.
+===========================================================
 
 Manages documentation generation.
-Gestiona la generación de documentación.
-
 Generates Mintlify-compatible Markdown files from structured data.
-Genera archivos Markdown compatibles con Mintlify a partir de datos estructurados.
 
 :created:   2025-11-28
 :filename:  documentation_manager.py
+:path:      packages/core-renombrador/src/core_renombrador/documentation_manager.py
+:author:    amBotHs + CENF
+:version:   2.0.0
+:license:   MIT
+:copyright: Copyright (c) 2025 CENF
 :author:    amBotHs
 :version:   1.0.0
 :status:    Production

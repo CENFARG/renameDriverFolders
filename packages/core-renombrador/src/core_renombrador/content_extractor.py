@@ -1,11 +1,19 @@
 """
-ContentExtractor con soporte para OCR
-======================================
+Content Extractor — File content extraction with OCR.
+======================================================
 
 Extrae contenido de archivos de diversos formatos, incluyendo:
 - Texto plano
 - PDF (con texto y escaneados)
 - DOCX
+
+:created:   2025-12-05
+:filename:  content_extractor.py
+:path:      packages/core-renombrador/src/core_renombrador/content_extractor.py
+:author:    amBotHs + CENF
+:version:   2.0.0
+:license:   MIT
+:copyright: Copyright (c) 2025 CENF
 - XLSX
 - Imágenes (JPG, PNG) mediante OCR
 
@@ -27,7 +35,6 @@ import docx
 import openpyxl
 from google.cloud import vision
 from pdf2image import convert_from_bytes
-from PIL import Image
 from pypdf import PdfReader
 
 logger = logging.getLogger(__name__)

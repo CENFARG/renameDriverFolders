@@ -1,0 +1,18 @@
+# Test dependencies for CI — no supabase, no google-cloud-vision
+# Core package installed with --no-deps, these cover what tests actually import
+pydantic>=2.0
+pytest>=7.0
+pytest-asyncio>=0.21
+aiosqlite>=0.19
+cryptography>=41.0
+agno>=1.0
+google-auth>=2.0
+google-api-python-client>=2.0
+google-cloud-secret-manager>=2.20
+google-genai>=1.0
+google-generativeai>=0.4
+beautifulsoup4>=4.0
+pypdf>=3.0
+Pillow>=10.0
+openpyxl>=3.0
+python-docx>=0.8

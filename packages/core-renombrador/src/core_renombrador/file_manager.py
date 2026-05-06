@@ -1,10 +1,24 @@
-# packages/core-renombrador/src/core_renombrador/file_manager.py
+"""
+File Manager — File I/O operations.
+=====================================
+
+Handles reading and writing JSON, text, and binary files
+with path resolution via ConfigManager.
+
+:created:   2025-12-05
+:filename:  file_manager.py
+:path:      packages/core-renombrador/src/core_renombrador/file_manager.py
+:author:    amBotHs + CENF
+:version:   2.0.0
+:license:   MIT
+:copyright: Copyright (c) 2025 CENF
+"""
 
 import json
 import logging
 import shutil
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 logger = logging.getLogger(__name__)
 

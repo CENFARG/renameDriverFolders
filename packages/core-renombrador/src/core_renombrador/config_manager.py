@@ -1,6 +1,6 @@
 """
-ConfigManager con estrategia híbrida de configuración
-=====================================================
+Config Manager — Hybrid configuration strategy.
+=================================================
 
 Prioridad de configuración:
 1. Variables de entorno (highest priority - for overrides)
@@ -8,6 +8,12 @@ Prioridad de configuración:
 3. config.json file (fallback/local dev)
 
 :created:   2025-12-05
+:filename:  config_manager.py
+:path:      packages/core-renombrador/src/core_renombrador/config_manager.py
+:author:    amBotHs + CENF
+:version:   2.0.0
+:license:   MIT
+:copyright: Copyright (c) 2025 CENF
 :filename:  config_manager.py
 :author:    amBotHs + CENF
 :version:   2.0.0

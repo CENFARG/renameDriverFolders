@@ -1,4 +1,19 @@
-# packages/core-renombrador/src/core_renombrador/logger_manager.py
+"""
+Logger Manager — Application-wide logging setup.
+==================================================
+
+Initializes Python logging with file and console handlers.
+Configurable via ConfigManager (level, file path).
+
+:created:   2025-12-05
+:filename:  logger_manager.py
+:path:      packages/core-renombrador/src/core_renombrador/logger_manager.py
+:author:    amBotHs + CENF
+:version:   2.0.0
+:license:   MIT
+:copyright: Copyright (c) 2025 CENF
+"""
+
 import logging
 from pathlib import Path
 from .config_manager import ConfigManager

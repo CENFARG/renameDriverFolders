@@ -1,4 +1,18 @@
-# packages/core-renombrador/src/core_renombrador/error_handler.py
+"""
+Error Handler — Global exception handling.
+============================================
+
+Sets up unhandled exception logging for the application.
+
+:created:   2025-12-05
+:filename:  error_handler.py
+:path:      packages/core-renombrador/src/core_renombrador/error_handler.py
+:author:    amBotHs + CENF
+:version:   2.0.0
+:license:   MIT
+:copyright: Copyright (c) 2025 CENF
+"""
+
 import sys
 import logging
 from typing import Type
